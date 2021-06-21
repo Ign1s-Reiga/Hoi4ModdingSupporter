@@ -1,0 +1,311 @@
+﻿***********************
+*        Beta_1a      *
+***********************
+
+- Parsing code will now be well formed, without random new line or ugly placement.
+- When analyzing user-written code, the application will now register any parsing errors.
+- Error dawg will now tell you where there are errors
+- Improved script loading and scripter stability
+- Scripter and script interpretor now knows that > and < exists
+- The first focus in the grid view will now display its line correctly on the first opening
+- Mutually exclusives lines won't overlap the foci anymore.
+- Fixed a crash with France tree and empty prerequisite blocks
+- Switching tabs in the main windows will now correctly reload lines
+- The focus grid is now indefinitely scrollable
+- Settings windows will now show on the first start
+- You can now set your preference for scripting, either the scripter or manual coding.
+- When editing scripts, the scripter windows will show the preferred tab
+- The scripter and editor will now update when changing tabs
+- You can now edit script manually with a minimalistic editor (Will be updated in the future)
+- The scripter is now generic (Preparing for the Events)
+
+***********************
+*        Beta_1b      *
+***********************
+
+- The code editor now allows you to press enter
+- Settings windows will now work in production
+- Fixed a crash on startup with Beta_1a
+
+***********************
+*        Beta_1c      *
+***********************
+
+- Renaming a file will now rename the tab
+- Fixed a crash when a focus has no internal script and you edit a loaded project
+- The code editor now supports Syntax highlighting and automatic formatting.
+- Added basic syntax highlighting words, must be improved
+- Fixed an error being logged when handling empty block (like availability = {}) in the scripter
+- Fixed a crash with the code editor when using CTRL + arrow keys
+- Script editor can now be scrolled using a code preview navigator
+- Pressing tab in the code editor will now insert a valid tab
+- Scripts will now remember the lines in the files for errors
+- Script editor can now be navigated with a code structure viewer
+- Scripts will now be parsed with a linebreak between blocks (Example, linebreak between foci)
+- Fixed some UI elements not changing languages (Need to to check all of them)
+- Can now search and replace in the code Editor
+
+***********************
+*        Beta_2       *
+***********************
+
+- The Scripter will now create its controls from a XML file in Common\ScripterControls
+- The Scripter may now create scripts for Events, event descriptions and event options as well as focus trees
+- The scripter and by extension the code Editor is now fully generic, configured by XML files.
+- Setting screen is less ugly and deformed in other languages
+- Tabs for hidden focus tree will now correctly rename
+- Fixed a crash with the code editor when opening an empty script a second time
+- Changed the minimum size for the project view expanders to 40 from 0
+- Fixed a major crash when entering text in a grid (Like the localisation grid) and changing tabs (Temporary Fix)
+- Added a small glow around the change image windows to make it pop
+- The code editor will now select the whole word when double clicking on one (Will not select spaces and will not ignore _)
+- Selecting a whole word will highlight all other instances of that word in the code editor
+- Fixed a bug with the preview scroll rectangle showing when code was too short to be scrolled
+- Added an error message when loading invalid game files
+- Switched the code Editor and Scripter GUI to reduce lag
+- Fixed a bug with events not refreshing when creating a new project
+- Added Event support
+- Added generic script files support
+- Files will now be exported in folders to make exporting easier (Except for generic)
+- Repaired the Find and Replace dialogs history
+- Improved the localisation performance with very large files significantly (Almost no lag for 500 Ko+ files)
+- Added Filtering capabilities to the localisation list
+- The code editor Structure navigator (Left Panel) is now more reliable
+- An error in the script will now display the line where the error has happened
+- The focus cost now allows decimals
+- The code interpreter now supports inline values only assignation (Exemple : add_ideas = { SOMETHING })
+- The code interpreter now supports multiline values only assignation (Exemple : add_ideas = { \n SOMETHING \n SOMETHING_ELSE })
+- Images in the application will now load after the window is shown rather than hang.
+- Overwriting a project save file will not prevent it to load again anymore.
+
+***********************
+*       Beta_2a       *
+***********************
+- Fixed a bug preventing deleting localization files.
+- Changed the name of defaults focuses to newFocus_number
+- All exception, even handled ones, will be written in the Log\Exceptions.log file
+- Crashes will no be written in the Log\Crashes.log file.
+
+***********************
+*       Beta_2b       *
+***********************
+- Fixed a crash with empty prerequisites sets.
+- Changing the focus name will now update everything else.
+- Loading a moved project will now save the project at the right place.
+- Changed the saving process to save in XML rather than in a special binary format, this will resolve many crashes and errors.
+- Fixed a bug with prerequisites always added to the first set of prerequisites
+- Fixed a bug with mutually exclusives line not being deleted when deleting a focus.
+
+***********************
+*       Beta_2c       *
+***********************
+- Added TFV focus icons
+- Fixed a crash when accessing the log file too fast
+- Fixed some focus icons names
+- Fixed a crash when attempting to read a line in script with a comment in it
+- Fixed a crash when attempting to load event calls in event files. 
+
+***********************
+*       Beta_2d       *
+***********************
+- Removed shine_mask.png from installer to fix image changing issue.
+- Installed Undo/Redo functionality on most operations.
+- The datacontract for project saving will now only update during the saving process rather than after each action to save memory.
+- Properties will not be changed if changed for the same value to save memory.
+- Improved performance slightly by removing unnecessary steps between commands.
+- Changed many operations to better suit the undo/redo framework.
+- Fixed an issue with localizations and changing of tabs.
+
+***********************
+*       Beta_2e       *
+***********************
+- Added the ability to rename a focus without opening the edit panel.
+- Added a separator in the focus context menu.
+- Fixed a bug with mutually exclusive caused by the undo changes.
+- Added a field for additional modifiers in a focus tree selection.
+- Pressing "Return" in the focus editor will now close and save the changes.
+- Pressing "Return" in the scripter will now close and save the changes, pressing "ESC" will only close it.
+- Added a splitter between the file viewer and the main panel.
+- Revamped the file viewer (left panel).
+- Adding file will now be done using a dialog windows.
+- Adding focus trees will now create the prerequisites and mutually exclusives with more reliability.
+- Localisation files will now be exported in the right file format (yml files).
+- Importing a localization file will not crash on empty lines anymore.
+- Fixed a crash when opening a localized Focus Tree when more than one key exists for the same value.
+- Exporting your project will now properly export the working version, not the last saved version.
+- Mutually exclusive clauses will not multiply anymore when importing a focus tree.
+- Setting windows will now properly stay in front after choosing the game folder.
+
+***********************
+*       Beta_2f       *
+***********************
+- Undoing a prerequisite removal will now fully restore the prerequisite.
+- Undoing a mutually exclusive will now fully restore the mutually exclusive.
+- Undoing the deletion of a focus will now restore its prerequisites and mutually exclusives.
+- Loading a project will not allow for undoing all the loading anymore.
+- Undoing adding a new prerequisite will now only take one click.
+- Undoing adding a new mutually exclusive will now only take one click.
+- Undoing adding a new focus whose properties were changed will now only take one click.
+- Fixed a crash with exporting projects from older versions.
+- Fixed a crash when deleting a prerequisite line.
+- The logging system should now properly log the errors rather than crash while attempting to do so.
+- Creating a new project will now prompt a new windows for more control over its parameters.
+- Added the ability to set a localisation file as "default" in the project for visual purposes.
+- The first localisation file created or imported will always be the default file for the project.
+- Changed the size of the file viewer (right panel) by 1/4 bigger.
+- Clicking the little message icon next to fields that can be localized will prompt a localization window. (Focus only for now)
+- Removed the option of changing the TAG, language name or namespace from the Focus Tree, Localization files or event files.
+- Syntax errors will now be checked for individual foci and events rather than the whole file.
+- Changing tabs while editing a localisation line will now cancel the changes rather than save them. This may not be final.
+- Double clicking a project file and opening it with the program will automatically load the project.
+
+***********************
+*       Beta_2g       *
+***********************
+- By using tokens rather than regexes, the script interpreter will now be ore precise and cause less syntax errors.
+- Syntax errors will now give more information on the line and column that caused the error.
+- ErrorDawg will now show up in the file manager when a script importation failed.
+- The major error message in the file manager will now show the right message.
+- The new project window will now asks to replace the file if it already exists.
+- Creating a new project will now save it automatically.
+- Files will now consider the file name and the object name in the application as different entities.
+- If an imported text file is modified, the application will inform the user, prompting a comparison dialog.
+- Having a non existing image for a focus or event will not cause an exception anymore.
+- Fixed a crash when creating a project with an empty name.
+- Image will now load from the game's .DDS files rather than converted png files.
+- Loading from .dds file may worsen the performance of the focus tree, some work has already been done.
+- Starting the app with a badly configured game path will now prompt a warning.
+
+***********************
+*       Beta_2h       *
+***********************
+- Opening a file that is changed will now prompt a compare dialog (WIP)
+- The script interpreter will now accept string in quotations as full words.
+- The script interpreter will now be more lenient with spaces and tabulations.
+- The script interpreter will now see words and comments without space and separate entities.
+- Fixed a crash with the generic focus tree being considered a normal tree and not having a tag.
+- The generic focus tree will now be exported as a generic focus rather than a tagged tree.
+- Added complete_tooltip to the list of possible blocks in the editor and interpreter.
+- Added cancel_if_invalid, continue_if_invalid and available_if_capitulated as keywords.
+- Editing a focus script will now allow the added keywords to be modified.
+- The focus icon will now refresh properly when changed.
+- Error dawg will now properly show itself when importing a syntax incorrect script.
+(The original changelog was longer, but major git issues caused it to disappear.)
+
+***********************
+*       Beta_2i       *
+***********************
+- Improved code readability and the number of steps for certain operations, which should improve 
+the performance slightly.
+- All images are now loaded with the app rather than when requested, which should help performance.
+- A small loading cursor will now display for long tasks, though performance is still an issue.
+- Clicking on the bubble icon again will now hide the localizator.
+- Created a test project that will test every part of the application automatically, saving time and preventing bugs.
+- Fixed various minor issues found by the testing.
+- Removed unnecessary modules to speed up to loading.
+- Removed all instances of the old file format, users still having old .h4prj projects should load them in beta_2g or lower.
+- The settings Windows will now properly show the currently selected language.
+- Fixed a rare bug where an imported focus tree which was exported and then imported back would not load properly.
+- Fixed a bug where the localization files would be named weirdly when exported.
+- Changed the name of the dialog box when creating a new project to prevent confusion.
+- Added support for text ids in focus trees using the text = xxxx. if available, the 
+application will use the text, otherwise, it will use the unique name.
+
+***********************
+*       Beta_2j       *
+***********************
+- Added "Open File" to the files' context menu, double clicking the file still works.
+- Using the localizator bubble when editing a focus will now properly chose the Text id over the unique name.
+- Using the localizator bubble for the description will now properly create a key for it rather than erase the visible name.
+- Focus trees using the relative_position_id command will now display properly.
+- Creating a new localisation file will now properly create a localization file rather than an event file.
+- Creating a new event file will now properly create an event file rather than a localization file.
+- Modified some of the image loading process to prevent the admin right requirement.
+- Greatly optimized and reduced the amount of library used, this should increase the initial loading speed.
+- Right-clicking on a focus will now allow you to make its position relative to a parent. 
+- Right-clicking on an empty space will allow you to show or hide the relative positioning lines.
+- Holding ALT in the focus grid will show you the relative positioning lines.
+- Hovering and cutting lines in the focus grid is now much more precise.
+- The small scissors icon will now follow the mouse around the line rather than hang in the middle.
+- The glow effect will now properly show around the focus when hovering over it.
+- Can now add mod folders where the images will be loaded in addition to the game folder. The app will prioritize modded versions.
+
+***********************
+*       Beta_3a       *
+***********************
+- The image loading system will now check a list of known typos in file names to prevent image not loading properly.
+- Fixed a crash with the images not loading properly if the game path was not valid when changing a focus icon.
+- Having a badly set game path will now load the focus tree with the default "unknown" icon.
+- A status bar at the bottom of the window will show helpful text when trying to do some operations.
+- Clicking anywhere in the focus grid while trying to use the mutually exclusives, prerequisites or relative to commands will cancel the operation.
+- Added tooltips to complex functionalities and to fields to explain how modding works.
+- When created, event descriptions for news event will now include the text and trigger assignations by default to help new modders.
+- Adding a new event will now only require one undo/redo to undo or redo.
+- Using Undo or redo after having edited the project will now undo every change instead of each change one by one.
+- Adding or editing a file will now only require one undo/redo to undo/redo.
+- Automatic testing will now test all events files from the game.
+- Fixed a very rare bug where a bracket just after (No space) a string between quotes in a script would be ignored.
+- Fixed some graphical issues in the event window.
+- Fixed a bug where all event options would have the same name.
+- Fixed a bug where the event parser would consider an event without a picture as invalid.
+- Added tutorial system. Each tutorial is defined in XML files with the steps allowing for various functionalities.
+- Tutorials are configured by a XML file, you can add as many as you like in the Common/Tutorials folder. See the default tutorial for help.
+- Added a tutorial for the main window, the focus grid, the localization list and the event list.
+- Foci costs will now default to 10 to speed up creating new focuses.
+- Fixed a random crash when adding more than one event while moving though the list.
+- Switched the control of the gird's scroll bar to the middle button to allow selection and easier mouse management.
+- A holding cursor will now show up when holding a focus or dragging the grid around.
+- The focus grid can now be dragged around with the middle mouse button, changed from the left mouse button which overlapped with the multi select.
+- Holding the left mouse button will now allow you to multiselect focuses. Clicking once on a focus will select that focus for copy.
+- Moving one of the focuses in a the list of multi-selected foci will move all the foci.
+- Holding ctrl and clicking on a focus will add this focus to the currently selected foci.
+- You can now use CTRL+C and CTRL+V or the context menu to copy and paste selected foci.
+- You can now delete all the selected focus by using the context menu on any focus. Note that the context menu has changed slightly when a focus is selected.
+- You can now use right-click->make copy to create a new copy of any file in the project view.
+- Changing the position of foci will now only require one click to undo or redo.
+- Fixed a rare issue where an error would prevent a change batch from ending and would full up memory, slowing down the app until a crash happened.
+- Fixed an issue where some commands could be ran on hidden focus tree rather than the currently selected tab.
+- Focuses actions will now only try to run on their respective trees, improving performance.
+- Can now use CTRL+S in the script to save the changes and exit.
+- The scripter will now either display the editor or scripter, but will not allow you to change between the two. This solves many bugs and performance issues.
+- Fixed most of the initial crashes with the script editor.
+- The script editor will now use a smart select for syntax highlight rather than highlight a selection of words.
+- Toned down the colors for the code editor, they should feel far less flashy.
+- The editor will now ignore syntax error (Will show them and explain them in the future)
+- The script interpreter will now remember the comments and parse them back when needed.
+- The script interpreter will now give more detailed information about syntax errors.
+- Fixed a rare bug where parsing could remove some part of the scripts and cause syntax errors after a few loadings.
+- Increased the size of some icons that were stupidly small.
+- Fixed the renaming textbox's position in the file viewer.
+- The rename textbox in the file viewer will now disappear when it loses focus (You click anywhere else).
+- Fixed encoding issues with the exported localisation files, will now be encoded in UTF-8 with BOM.
+- The localizations for the application will now be found from various files rather than one huge file, currently, only the default and the tutorials exists.
+- Fixed a bug where adding a new file would create a fake undo entry, causing a crash if undone.
+- Changing the X and Y value of a focus in the focus editor will now update the position of all its children if they are positioned relative to this element.
+- Lag should not allow the user to open the same file more than one time anymore.
+
+***********************
+*       Beta_3b       *
+***********************
+- Errors in the script interpreter will no longer cause any crash or error logging.
+- The script interpreter will no longer stop immediately at the first error, it will try to run through the remaining code if possible.
+- Fixed an issue where imported events would sometimes end up empty.
+- Imported events will no longer import empty descriptions if a news event.
+- The script editor will now display various syntax errors with a squiggly red line under the nearest text.
+- Hovering over errors will display a message for the user.
+- Syntax highlight for string literals will now ignore escaped quotes (\")
+- The syntax interpreter will now properly identify the column index of string literals.
+- Fixed a bug where using SHIFT+TAB to remove indent in the code editor at the last line would cause a crash.
+- The logging will now use log4net, making sure the application won't crash on smaller errors.
+- Fixed an issue where an impossible save would crash the application when creating a project.
+- Can now leave the tutorials using the escape key.
+- Fixed a crash when exporting an empty focus tree.
+- Fixed a crash when clicking "Change" on a new event option.
+- You can now add notes to your foci, notes are written in the focus editor and can be viewed with a tooltip when hover over a focus in the grid.
+- Fixed some of the issues with the events UI.
+- Added the localizator bubble to the event UI for the Title and Description.
+- Fixed many bugs with the event UI and logic, it should work most of the time now.
+- The script interpreter will now ignore "safe" syntax errors, like missing operators.
+- Error dawg will now display safe and unsafe errors.
+- Errors will be more predictable and precise when parsing code from the game.
+- Fixed an issue where exported code would sometimes crash the application when imported again.

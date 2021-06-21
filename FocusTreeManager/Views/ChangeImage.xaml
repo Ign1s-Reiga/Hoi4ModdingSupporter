@@ -1,0 +1,44 @@
+﻿<Controls:MetroWindow x:Class="FocusTreeManager.Views.ChangeImage"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ignore="http://www.galasoft.ch/ignore"
+        xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        mc:Ignorable="d ignore" GlowBrush="{DynamicResource AccentColorBrush}"
+        ResizeMode="NoResize" SizeToContent="WidthAndHeight" Title="{DynamicResource Chose_Image_Title}" 
+        WindowStartupLocation="CenterScreen" Icon="/FocusTreeManager;component/GFX/Focus/goal_unknown.png">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/Icons.xaml" />
+                <ResourceDictionary x:Name="LocalizationStrings" Source="/FocusTreeManager;component/Languages/En_en.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding ImageList}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="10">
+                        <Image x:Name="ImageToChose"
+                               Source="{Binding Image}" MaxWidth="{Binding MaxWidth}" 
+                               ToolTip="{Binding Filename}"/>
+                        <!--:Loader.DisplayOption="FullResolution"
+                               l:Loader. />-->
+                        <Button Content="{DynamicResource Command_Select}" 
+                                Command="{Binding ChangeImage.SelectCommand, Source={StaticResource Locator}}" 
+                                CommandParameter="{Binding Filename}" 
+                                Height="25" Width="150" VerticalAlignment="Bottom"
+                                Style="{DynamicResource SquareButtonStyle}" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</Controls:MetroWindow>

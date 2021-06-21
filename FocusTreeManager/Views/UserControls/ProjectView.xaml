@@ -1,0 +1,160 @@
+﻿<UserControl x:Class="FocusTreeManager.Views.UserControls.ProjectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" MinWidth="150"
+             DataContext="{Binding ProjectView, Source={StaticResource Locator}}"
+             x:Name="ProjectViewControl">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/Icons.xaml" />
+                <ResourceDictionary x:Name="LocalizationStrings" Source="/FocusTreeManager;component/Languages/En_en.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <DataTemplate x:Key="TemplateLabel">
+                <StackPanel DataContext="{Binding}"
+                            MouseDown="CodeTreeView_MouseDown"
+                            Tag="{Binding RelativeSource={RelativeSource 
+                                    AncestorType={x:Type UserControl}}}">
+                    <StackPanel.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, 
+		                             RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="{DynamicResource Command_Open}" 
+                                      Command="{Binding Path=PlacementTarget.Tag.DataContext.OpenFileCommand, 
+                                            RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}"
+                                      CommandParameter="{Binding}" />
+                            <MenuItem Header="{DynamicResource Command_Rename}" 
+                                      Click="MenuItem_Click"/>
+                            <MenuItem Header="{DynamicResource Command_Edit}" 
+                                      Command="{Binding EditElementCommand}"/>
+                            <MenuItem Header="{DynamicResource Command_Create_Copy}" 
+                                      Command="{Binding CopyElementCommand}"/>
+                            <MenuItem Header="{DynamicResource Command_Delete}" 
+                                      Command="{Binding DeleteElementCommand}"/>
+                        </ContextMenu>
+                    </StackPanel.ContextMenu>
+                    <StackPanel.InputBindings>
+                        <MouseBinding Command="{Binding ElementName=ProjectViewControl,
+                                        Path=DataContext.OpenFileCommand}"
+                                        CommandParameter="{Binding}" 
+                                        MouseAction="LeftDoubleClick" />
+                    </StackPanel.InputBindings>
+                    <Grid>
+                        <TextBlock Margin="4 0 0 0" Text="{Binding VisibleName}" 
+                                   VerticalAlignment="Center"/>
+                        <TextBox Margin="0 0 0 0"
+                             VerticalAlignment="Center"
+                             Text="{Binding VisibleName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             KeyDown="TextBox_KeyDown" 
+                                 LostFocus="UIElement_OnLostFocus"
+                             Visibility="Hidden"/>
+                    </Grid>
+                </StackPanel>
+            </DataTemplate>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="5,0,5,5">
+            <ToolBarTray Margin="25,0,0,0" x:Name="FileViewerToolbar">
+                <ToolBar ToolBarTray.IsLocked="True">
+                    <Button ToolTip="{DynamicResource Add_New_File}"
+                                x:Name="AddButton" Command="{Binding AddElementCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="15"
+                               Height="15"
+                               Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <Rectangle.OpacityMask>
+                                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_page_add}" />
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
+                        </StackPanel>
+                    </Button>
+                </ToolBar>
+                <ToolBar ToolBarTray.IsLocked="True">
+                    <Button ToolTip="{DynamicResource Command_Delete}"
+                            x:Name="DeleteButton" Command="{Binding DeleteElementMenuCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="15"
+                               Height="15"
+                               Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <Rectangle.OpacityMask>
+                                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_delete}" />
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
+                        </StackPanel>
+                    </Button>
+                    <Button ToolTip="{DynamicResource Command_Edit}"
+                            x:Name="EditButton" Command="{Binding EditElementMenuCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="15"
+                               Height="15"
+                               Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <Rectangle.OpacityMask>
+                                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_edit}" />
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
+                        </StackPanel>
+                    </Button>
+                    <Button ToolTip="{DynamicResource Command_Rename}"
+                            x:Name="RenameButton" Click="RenameButton_Click"
+                            IsEnabled="False">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="15"
+                               Height="15"
+                               Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <Rectangle.OpacityMask>
+                                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_interface_textbox}" />
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
+                        </StackPanel>
+                    </Button>
+                    <Button ToolTip="{DynamicResource Command_Create_Copy}"
+                            x:Name="CopyButton" Command="{Binding CopyElementMenuCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="15"
+                               Height="15"
+                               Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <Rectangle.OpacityMask>
+                                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_page_copy}" />
+                                </Rectangle.OpacityMask>
+                            </Rectangle>
+                        </StackPanel>
+                    </Button>
+                </ToolBar>
+            </ToolBarTray>
+        </StackPanel>
+        <TreeView x:Name="CodeTreeView" ItemsSource="{Binding Project}" Grid.Row="1"
+                  SelectedItemChanged="CodeTreeView_SelectedItemChanged"
+                  TreeViewItem.Selected="CodeTreeView_Selected">
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource Add_New_File}" 
+                              Command="{Binding AddElementCommand}"/>
+                </ContextMenu>
+            </TreeView.ContextMenu>
+            <TreeViewItem Header="{Binding Project.ProjectName}">
+                <TreeViewItem Header="{DynamicResource Manage_Focus}"
+                              ItemsSource="{Binding Project.fociList}"
+                              ItemTemplate="{StaticResource TemplateLabel}">
+                </TreeViewItem>
+                <TreeViewItem Header="{DynamicResource Manage_Localisation}"
+                              ItemsSource="{Binding Project.localisationList}"
+                              ItemTemplate="{StaticResource TemplateLabel}">
+                </TreeViewItem>
+                <TreeViewItem Header="{DynamicResource Manage_Event}"
+                              ItemsSource="{Binding Project.eventList}"
+                              ItemTemplate="{StaticResource TemplateLabel}">
+                </TreeViewItem>
+                <TreeViewItem Header="{DynamicResource Manage_Generic}"
+                              ItemsSource="{Binding Project.scriptList}"
+                              ItemTemplate="{StaticResource TemplateLabel}">
+                </TreeViewItem>
+            </TreeViewItem>
+        </TreeView>
+    </Grid>
+</UserControl>

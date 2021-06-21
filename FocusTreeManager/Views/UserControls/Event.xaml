@@ -1,0 +1,280 @@
+﻿<UserControl x:Class="FocusTreeManager.Views.UserControls.Event"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:uc="clr-namespace:FocusTreeManager.Views.UserControls"
+             xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             mc:Ignorable="d" >
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <Style TargetType="{x:Type TextBlock}" x:Key="WrapText">
+                <Setter Property="TextWrapping" Value="Wrap"/>
+            </Style>
+            <Style x:Key="ControlStyle" TargetType="Control">
+                <Setter Property="HorizontalAlignment" Value="Left"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+            <Style BasedOn="{StaticResource ControlStyle}" TargetType="Label">
+                <Setter Property="Margin" Value="-4,0,5,0"/>
+                <Setter Property="HorizontalAlignment" Value="Right"/>
+            </Style>
+            <Style BasedOn="{StaticResource ControlStyle}" TargetType="TextBox">
+                <Setter Property="Width" Value="200"/>
+                <Setter Property="Height" Value="25"/>
+            </Style>
+            <Style BasedOn="{StaticResource ControlStyle}" TargetType="Controls:NumericUpDown">
+                <Setter Property="Width" Value="200"/>
+                <Setter Property="Height" Value="25"/>
+            </Style>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/Icons.xaml" />
+                <ResourceDictionary x:Name="LocalizationStrings" Source="/FocusTreeManager;component/Languages/En_en.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="60*"/>
+            <ColumnDefinition Width="40*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70" x:Name="TitleAndId"/>
+            <RowDefinition Height="180" x:Name="Picture"/>
+            <RowDefinition Height="250" x:Name="DescriptionRow"/>
+            <RowDefinition Height="90" x:Name="ChoicesRow"/>
+            <RowDefinition Height="150" x:Name="NoteRow"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0"  Background="{DynamicResource AccentBaseColorBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="170"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60*"/>
+                <RowDefinition Height="40*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" >
+                <Label Content="{DynamicResource Event_Id}" 
+                       VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                       FontSize="16" FontWeight="Bold"
+                       ToolTip="{DynamicResource Event_Id_Tooltip}"/>
+                <TextBox Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+            <TextBlock Text="{Binding Title}" Margin="40,0,0,0"
+                       Foreground="{DynamicResource IdealForegroundColorBrush}"
+                       VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                       ToolTip="{DynamicResource Event_Title_Tooltip}"
+                       FontSize="15" Grid.Row="1" Grid.Column="0"/>
+            <Controls:ToggleSwitch Header="{DynamicResource Event_Type_Switch}" 
+                                   ToolTip="{DynamicResource Event_Type_Switch_Tooltip}"
+                                   OffLabel="{DynamicResource Event_Type_Switch_1}" 
+                                   OnLabel="{DynamicResource Event_Type_Switch_2}"
+                                   Width="170" Grid.Column="1" Grid.Row="0"
+                                   Grid.RowSpan="2"/>
+        </Grid>
+        <Image Grid.Row="1" Grid.Column="0"
+               Source="{Binding ImagePath}" 
+               ToolTip="{DynamicResource Event_Picture}" />
+        <Button Content="{DynamicResource Command_Change}" Command="{Binding ChangeImageCommand}" 
+                    Grid.Row="1" Grid.Column="0" 
+                VerticalAlignment="Bottom" Margin="0,0,0,5" 
+                    Style="{DynamicResource SquareButtonStyle}" Width="150"/>
+        <Grid Grid.Row="2" Grid.Column="0" Margin="10">
+            <DockPanel x:Name="DescriptionText">
+                <Label Content="{DynamicResource Event_Description}" Padding="5" 
+                       DockPanel.Dock="Top" HorizontalAlignment="Stretch"
+                       ToolTip="{DynamicResource Event_Description_Tooltip}"/>
+                <ScrollViewer DockPanel.Dock="Bottom" >
+                    <TextBlock Text="{Binding Description}" Padding="5" 
+                               HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="35,0,0,0"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+        <Grid Grid.Row="3" Grid.Column="0" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="50*"/>
+                <ColumnDefinition Width="50*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="35" x:Name="FirstAndSecondBools"/>
+                <RowDefinition Height="35" x:Name="ThirdAndFourthBools"/>
+            </Grid.RowDefinitions>
+            <CheckBox Grid.Row="0" Grid.Column="0" Content="{DynamicResource Event_Major}"
+                      IsChecked="{Binding IsMajor}"
+                      ToolTip="{DynamicResource Event_Major_Tooltip}"/>
+            <CheckBox Grid.Row="0" Grid.Column="1" Content="{DynamicResource Event_Triggered}"
+                      IsChecked="{Binding IsTriggeredOnly}"
+                      ToolTip="{DynamicResource Event_Triggered_Tooltip}"/>
+            <CheckBox Grid.Row="1" Grid.Column="0" Content="{DynamicResource Event_Hidden}"
+                      IsChecked="{Binding IsHidden}"
+                      ToolTip="{DynamicResource Event_Hidden_Tooltip}"/>
+            <CheckBox Grid.Row="1" Grid.Column="1" Content="{DynamicResource Event_Fired_Once}"
+                      IsChecked="{Binding IsFiredOnce}"
+                      ToolTip="{DynamicResource Event_Fired_Once_Tooltip}"/>
+        </Grid>
+        <Grid Grid.Row="4" Grid.Column="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="50*"/>
+                <ColumnDefinition Width="50*"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="{DynamicResource Focus_Note}" 
+               Grid.Column="0"
+               ToolTip="{DynamicResource Focus_Note_Tooltip}"/>
+            <TextBox Text="{Binding Note}" Grid.Column="1"
+                 Controls:TextBoxHelper.Watermark="{DynamicResource Focus_Note}"
+                 AcceptsReturn="True" x:Name="NoteTextBox" TextWrapping="Wrap"
+                 HorizontalScrollBarVisibility="Disabled" Height="120"
+                 VerticalScrollBarVisibility="Auto"/>
+        </Grid>
+        <DockPanel Grid.Row="0" HorizontalAlignment="Stretch" Grid.Column="1"
+                    Background="{DynamicResource AccentBaseColorBrush}">
+            <Label Content="{DynamicResource Event_Description_Options}" 
+                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                    FontSize="16" FontWeight="Bold"
+                    ToolTip="{DynamicResource Event_Description_Options_Tooltip}"/>
+        </DockPanel>
+        <Grid Grid.Row="1" Grid.Column="1" Grid.RowSpan="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" x:Name="Descriptions"/>
+                <RowDefinition Height="72" x:Name="OptionsLabel"/>
+                <RowDefinition Height="*" x:Name="Options"/>
+                <RowDefinition Height="35" x:Name="ChangeScript"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="50*"/>
+                <ColumnDefinition Width="50*"/>
+            </Grid.ColumnDefinitions>
+            <DockPanel x:Name="DescriptionList" Background="{Binding Path=Background, 
+                            RelativeSource={RelativeSource Mode=FindAncestor,
+                                        AncestorType=Window, AncestorLevel=1}}"
+                       Grid.ColumnSpan="2" >
+                <DataGrid ItemsSource="{Binding Path=Descriptions}"
+                          AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                          AlternationCount="2" AlternatingRowBackground="{DynamicResource AccentColorBrush4}" 
+                          x:Name="GridDescriptions" HorizontalScrollBarVisibility="Disabled"
+                          DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Visible">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding Text}" IsReadOnly="True"
+                                            ElementStyle="{StaticResource WrapText}"
+                                            CanUserResize="False"
+                                            Width="*">
+                            <DataGridTextColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{DynamicResource Event_Description_Text}"/>
+                                </DataTemplate>
+                            </DataGridTextColumn.HeaderTemplate>
+                        </DataGridTextColumn>
+                        <DataGridTemplateColumn Width="150" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.EditDescScriptCommand, 
+                                                RelativeSource={RelativeSource FindAncestor, 
+                                                AncestorType={x:Type DataGrid}}}" 
+                                            CommandParameter="{Binding}" 
+                                            Content="{DynamicResource Command_Change}"
+                                            Style="{DynamicResource SquareButtonStyle}"
+                                            Loaded="FrameworkElement_OnLoaded"
+                                            IsEnabled="False"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{DynamicResource Event_Description_Script}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+            <DockPanel Grid.Row="1" Grid.ColumnSpan="2" HorizontalAlignment="Stretch"
+                        Background="{DynamicResource AccentBaseColorBrush}"
+                        Grid.Column="0">
+                <Label Content="{DynamicResource Event_Option}" 
+                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                    FontSize="16" FontWeight="Bold"
+                    ToolTip="{DynamicResource Event_Option_Tooltip}"/>
+            </DockPanel>
+            <DockPanel Grid.Row="2" Grid.ColumnSpan="2" Grid.Column="0">
+                <DataGrid ItemsSource="{Binding Path=Options}" DockPanel.Dock="Bottom"
+                              AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                              AlternationCount="2" AlternatingRowBackground="{DynamicResource AccentColorBrush4}"
+                              x:Name="GridOptions" HorizontalScrollBarVisibility="Disabled" >
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding Name}" 
+                                            ElementStyle="{StaticResource WrapText}"
+                                            Width="*">
+                            <DataGridTextColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{DynamicResource Event_Option_Name}"/>
+                                </DataTemplate>
+                            </DataGridTextColumn.HeaderTemplate>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Binding="{Binding Text}" IsReadOnly="True"
+                                            ElementStyle="{StaticResource WrapText}"
+                                            Width="*">
+                            <DataGridTextColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{DynamicResource Event_Option_Text}"/>
+                                </DataTemplate>
+                            </DataGridTextColumn.HeaderTemplate>
+                        </DataGridTextColumn>
+                        <DataGridTemplateColumn Width="150" CanUserResize="False" >
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.EditOptionScriptCommand, 
+                                                    RelativeSource={RelativeSource FindAncestor, 
+                                                    AncestorType={x:Type DataGrid}}}" 
+                                            CommandParameter="{Binding}"
+                                            Content="{DynamicResource Command_Change}"
+                                            Style="{DynamicResource SquareButtonStyle}"
+                                            Loaded="FrameworkElement_OnLoaded"
+                                            IsEnabled="False"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{DynamicResource Event_Option_Script}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.HeaderTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+            <Label Content="{DynamicResource Event_Script}" 
+                   Grid.Column="0" Grid.Row="3"/>
+            <Button Content="{DynamicResource Command_Edit}" 
+                    Grid.Row="3" Grid.Column="1" Command="{Binding EditScriptCommand}" 
+                    Style="{DynamicResource SquareButtonStyle}" Width="150" Height="25"/>
+        </Grid>
+        <Canvas Grid.ColumnSpan="2" Grid.Column="0" Grid.Row="0" Grid.RowSpan="5">
+            <Button Style="{DynamicResource MetroCircleButtonStyle}"
+                    Width="36" x:Name="TitleButton"
+                    Height="36" Canvas.Top="35"
+                    Click="TitleButton_OnClick"
+                    Command="{Binding EditLocaleCommand}"
+                    CommandParameter="Title">
+                <Rectangle Width="15" Height="15"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                    <Rectangle.OpacityMask>
+                        <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_message}" />
+                    </Rectangle.OpacityMask>
+                </Rectangle>
+            </Button>
+            <Button Style="{DynamicResource MetroCircleButtonStyle}"
+                    Width="36" x:Name="DescriptionButton"
+                    Height="35" Canvas.Top="375"
+                    Click="DescriptionButton_OnClick"
+                    Command="{Binding EditLocaleCommand}"
+                    CommandParameter="Description">
+                <Rectangle Width="15" Height="15"
+                    Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}">
+                    <Rectangle.OpacityMask>
+                        <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_message}" />
+                    </Rectangle.OpacityMask>
+                </Rectangle>
+            </Button>
+            <uc:Localizator x:Name="Localizator" Visibility="Hidden"></uc:Localizator>
+        </Canvas>
+    </Grid>
+</UserControl>

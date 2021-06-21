@@ -1,0 +1,261 @@
+﻿<Controls:MetroWindow x:Class="FocusTreeManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vu="clr-namespace:FocusTreeManager.Views.UserControls"
+        xmlns:dragablz="clr-namespace:Dragablz;assembly=Dragablz"
+        xmlns:dockablz="clr-namespace:Dragablz.Dockablz;assembly=Dragablz"
+        xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:Dialog="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
+        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
+        xmlns:cmd="clr-namespace:GalaSoft.MvvmLight.Command;assembly=GalaSoft.MvvmLight.Platform"
+        xmlns:tabModels="clr-namespace:FocusTreeManager.Model.TabModels"
+        mc:Ignorable="d"
+        Title="{DynamicResource Main_Title}" Height="350" Width="525"
+        WindowState="Maximized" Icon="GFX/Focus/goal_unknown.png" Closed="MetroWindow_Closed" 
+        Closing="MetroWindow_Closing"
+        DataContext="{Binding Main, Source={StaticResource Locator}}"
+        Dialog:DialogParticipation.Register="{Binding}" Loaded="MetroWindow_Loaded">
+    <i:Interaction.Triggers>
+        <i:EventTrigger EventName="Loaded">
+            <cmd:EventToCommand Command="{Binding WindowLoadedCommand}"
+                            PassEventArgsToCommand="True" />
+        </i:EventTrigger>
+    </i:Interaction.Triggers>
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/Icons.xaml" />
+                <ResourceDictionary x:Name="LocalizationStrings" Source="/FocusTreeManager;component/Languages/En_en.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Dragablz;component/Themes/MahApps.xaml" />
+                <ResourceDictionary>
+                    <TextBlock x:Key="CursorGrabbing" Cursor="Resources/Cursors/grabbing.cur"/>
+                </ResourceDictionary>
+            </ResourceDictionary.MergedDictionaries>
+            <DataTemplate DataType="{x:Type tabModels:FocusGridModel}">
+                <Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" 
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseMove="ContentScroll_PreviewMouseMove" 
+                                  PreviewMouseDown="scrollViewer_PreviewMouseLeftButtonDown"
+                                  PreviewMouseUp="scrollViewer_PreviewMouseLeftButtonUp" 
+                                  Background="Transparent" ScrollChanged="ScrollViewer_ScrollChanged"
+                                  x:Name="FocusGridScroll">
+                        <vu:FocusGrid x:Name="FociGrid"></vu:FocusGrid>
+                    </ScrollViewer>
+                    <vu:TutorialButton LinkedElement="{Binding ElementName=FociGrid}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Top"
+                                       Margin="0,0,15,0"/>
+                </Grid>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type tabModels:LocalisationModel}">
+                <Grid>
+                    <vu:Localisation x:Name="LocalizationList"></vu:Localisation>
+                    <vu:TutorialButton LinkedElement="{Binding ElementName=LocalizationList}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Top"
+                                       Margin="0,0,15,0"/>
+                </Grid>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type tabModels:EventTabModel}">
+                <Grid>
+                    <vu:EventList x:Name="EventList"></vu:EventList>
+                    <vu:TutorialButton LinkedElement="{Binding ElementName=EventList}"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Top"
+                                       Margin="0,0,15,0"/>
+                </Grid>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type tabModels:ScriptModel}">
+                <Grid DataContext="{Binding}" x:Name="ScriptEditor">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="50"/>
+                    </Grid.RowDefinitions>
+                    <Grid.InputBindings>
+                        <KeyBinding Modifiers="Control"
+                        Key="S"
+                        Command="{Binding SaveScriptCommand}"
+                        CommandParameter="{Binding ElementName=Scripter}"/>
+                    </Grid.InputBindings>
+                    <vu:Scripter Grid.Row="0" x:Name="Scripter"/>
+                    <StackPanel HorizontalAlignment="Right" Grid.Row="1">
+                        <Button Content="{DynamicResource Command_Save}" 
+                                Command="{Binding SaveScriptCommand}"
+                                CommandParameter="{Binding ElementName=Scripter}"
+                                Width="150" Style="{DynamicResource SquareButtonStyle}" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Control"
+                    Key="S"
+                    Command="{Binding SaveProjectCommand}" />
+        <KeyBinding Modifiers="Control"
+                    Key="L"
+                    Command="{Binding LoadProjectCommand}" />
+        <KeyBinding Modifiers="Control"
+                    Key="E"
+                    Command="{Binding ExportProjectCommand}" />
+        <KeyBinding Modifiers="Control"
+                    Key="N"
+                    Command="{Binding NewProjectCommand}" />
+        <KeyBinding Modifiers="Control"
+                    Key="Z"
+                    Command="{Binding UndoCommand}" />
+        <KeyBinding Modifiers="Control"
+                    Key="Y"
+                    Command="{Binding RedoCommand}" />
+    </Window.InputBindings>
+    <Controls:MetroWindow.RightWindowCommands>
+        <Controls:WindowCommands>
+            <Button Command="{Binding UndoCommand}"
+                    x:Name="UndoButton">
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                   Height="20"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                        <Rectangle.OpacityMask>
+                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_undo_curve}" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding RedoCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                   Height="20"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                        <Rectangle.OpacityMask>
+                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_redo_curve}" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
+                </StackPanel>
+            </Button>
+            <Button x:Name="ExportButton" Command="{Binding ExportProjectCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                   Height="20"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                        <Rectangle.OpacityMask>
+                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_page_xml}" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
+                    <TextBlock Margin="4 0 0 0"
+                   VerticalAlignment="Center"
+                   Text="{DynamicResource Menu_Export}" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="ProjectButton" Click="ProjectButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                   Height="20"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                        <Rectangle.OpacityMask>
+                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_page}" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
+                    <TextBlock Margin="4 0 0 0"
+                   VerticalAlignment="Center"
+                   Text="{DynamicResource Menu_Project}" />
+                </StackPanel>
+            </Button>
+            <Button Click="SettingsButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <Rectangle Width="20"
+                   Height="20"
+                   Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                        <Rectangle.OpacityMask>
+                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_settings}" />
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
+                    <TextBlock Margin="4 0 0 0"
+                   VerticalAlignment="Center"
+                   Text="{DynamicResource Menu_Settings}" />
+                </StackPanel>
+            </Button>
+        </Controls:WindowCommands>
+    </Controls:MetroWindow.RightWindowCommands>
+    <Controls:MetroWindow.Flyouts>
+        <Controls:FlyoutsControl>
+            <Controls:Flyout x:Name="FocusFlyout" 
+                      Width="400" IsModal="True" Position="Right">
+                <vu:FocusEditor></vu:FocusEditor>
+            </Controls:Flyout>
+            <Controls:Flyout x:Name="ProjectFlyout" VerticalAlignment="Center"
+                      Width="400" IsModal="True" Position="Left" IsOpen="True" 
+                      CloseButtonVisibility="Hidden" ClosingFinished="ProjectFlyout_OnClosingFinished">
+                <StackPanel Orientation="Vertical" CanVerticallyScroll="True" >
+                    <Button Style="{DynamicResource MetroCircleButtonStyle}" x:Name="NewButton"
+                            Content="{DynamicResource appbar_page_new}" Width="100" Height="100"
+                            Command="{Binding NewProjectCommand}"/>
+                    <Label Content="{DynamicResource Project_New}" FontSize="20" HorizontalAlignment="Center"/>
+                    <Button Style="{DynamicResource MetroCircleButtonStyle}"  x:Name="LoadButton"
+                            Content="{DynamicResource appbar_page_upload}" Width="100" Height="100"
+                            Command="{Binding LoadProjectCommand}"/>
+                    <Label Content="{DynamicResource Project_Load}" FontSize="20" HorizontalAlignment="Center"/>
+                    <Button Style="{DynamicResource MetroCircleButtonStyle}"  x:Name="EditButton"
+                            Content="{DynamicResource appbar_page_edit}" Width="100" Height="100"
+                            Command="{Binding EditProjectCommand}" IsEnabled="{Binding IsProjectExist}"/>
+                    <Label Content="{DynamicResource Project_Edit}" FontSize="20" HorizontalAlignment="Center"/>
+                    <Button Style="{DynamicResource MetroCircleButtonStyle}" x:Name="SaveButton"
+                            Content="{DynamicResource appbar_page_download}" Width="100" Height="100"
+                            Command="{Binding SaveProjectCommand}" IsEnabled="{Binding IsProjectExist}"/>
+                    <Label Content="{DynamicResource Project_Save}" FontSize="20" HorizontalAlignment="Center"/>
+                    <Button Style="{DynamicResource MetroCircleButtonStyle}" x:Name="SaveAsButton"
+                            Content="{DynamicResource appbar_page_duplicate}" Width="100" Height="100"
+                            Command="{Binding SaveProjectAsCommand}" IsEnabled="{Binding IsProjectExist}"/>
+                    <Label Content="{DynamicResource Project_Save_As}" FontSize="20" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Controls:Flyout>
+        </Controls:FlyoutsControl>
+    </Controls:MetroWindow.Flyouts>
+    <Grid>
+        <Grid x:Name="MainGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <vu:ProjectView Grid.Column="0" x:Name="FileViewer"/>
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" />
+            <DockPanel Grid.Column="2">
+                <Grid DockPanel.Dock="Bottom" Panel.ZIndex="1" >
+                    <StatusBar DataContext="{Binding StatusBar, Source={StaticResource Locator}}">
+                        <StatusBarItem>
+                            <TextBlock Name="StatusText" Text="{Binding Message}"/>
+                        </StatusBarItem>
+                    </StatusBar>
+                    <Grid HorizontalAlignment="Right" Width="70" Height="110" Margin="0,-130,15,0" x:Name="GridErrors">
+                        <vu:ErrorDawg />
+                    </Grid>
+                </Grid>
+                <dockablz:Layout FloatingItemHeaderMemberPath="Header" FloatingItemDisplayMemberPath="Content"
+                         FloatingItemContainerStyle="{DynamicResource MahAppsToolDragablzItemStyle}">
+                    <dragablz:TabablzControl x:Name="CentralTabControl" ShowDefaultAddButton="False"
+                        ShowDefaultCloseButton="True" ItemsSource="{Binding TabsModelList}" 
+                        SelectedItem="{Binding SelectedTab}"
+                        SelectionChanged="CentralTabControl_SelectionChanged" >
+                        <dragablz:TabablzControl.HeaderItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding VisibleName}"  />
+                            </DataTemplate>
+                        </dragablz:TabablzControl.HeaderItemTemplate>
+                        <TabControl.ItemTemplate>
+                            <DataTemplate >
+                                <DockPanel></DockPanel>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                    </dragablz:TabablzControl>
+                </dockablz:Layout>
+            </DockPanel>
+        </Grid>
+        <vu:TutorialButton LinkedElement="{Binding ElementName=MainGrid}"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Top"/>
+    </Grid>
+</Controls:MetroWindow>
