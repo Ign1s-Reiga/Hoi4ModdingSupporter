@@ -1,0 +1,17 @@
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.exe
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.deps.json
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.runtimeconfig.json
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.runtimeconfig.dev.json
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.dll
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\netcoreapp3.1\Hoi4ModdingSupporter.pdb
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.csproj.AssemblyReference.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.MainWindow.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.Properties.Resources.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.csproj.GenerateResource.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.AssemblyInfoInputs.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.AssemblyInfo.cs
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.csproj.CoreCompileInputs.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.dll
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.pdb
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.genruntimeconfig.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\netcoreapp3.1\Hoi4ModdingSupporter.VersionPopup.resources
