@@ -1,0 +1,42 @@
+﻿<Window x:Name="MainWindow1" x:Class="Hoi4ModdingSupporter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Hoi4ModdingSupporter"
+        mc:Ignorable="d"
+        Title="Hoi4 Modding Supporter" Height="600" Width="800" Icon="goal_unknown.png">
+    <Grid x:Name="Back" Background="#FF4D4D4D">
+        <DockPanel>
+            <Menu x:Name="DockBase" DockPanel.Dock="Top" Background="#FF4D4D4D">
+                <MenuItem Header="File (_F)" Background="White">
+                    <MenuItem Header="New Project"/>
+                    <MenuItem Header="Open Project"/>
+                    <MenuItem Header="Save"/>
+                    <MenuItem Header="Save as..."/>
+                    <Separator/>
+                    <MenuItem Header="End" Click="endApplication"/>
+                </MenuItem>
+                <MenuItem Header="Edit (_E)" Background="White">
+                    <MenuItem Header="Undo"/>
+                    <MenuItem Header="Redo"/>
+                    <Separator/>
+                    <MenuItem Header="Cut"/>
+                    <MenuItem Header="Copy"/>
+                    <MenuItem Header="Paste"/>
+                    <MenuItem Header="Delete"/>
+                    <Separator/>
+                    <MenuItem Header="Find"/>
+                </MenuItem>
+                <MenuItem Header="Format (_F)" Background="White">
+                    <MenuItem Header="Fonts"/>
+                </MenuItem>
+                <MenuItem Header="Help (_H)" Background="White">
+                    <MenuItem Header="About" Click="showAbout"/>
+                </MenuItem>
+            </Menu>
+        </DockPanel>
+        <TextBox Margin="542,20,0,0" TextWrapping="Wrap" Background="#FF323232" BorderBrush="White"/>
+        <TreeView x:Name="FileManager" HorizontalAlignment="Left" Width="150" Background="#FF4D4D4D" BorderBrush="White" Margin="0,20,0,0"/>
+    </Grid>
+</Window>

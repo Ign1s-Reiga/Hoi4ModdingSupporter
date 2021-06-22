@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31410.357
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hoi4ModdingSupporter", "Hoi4ModdingSupporter\Hoi4ModdingSupporter.csproj", "{B43A8151-228E-482C-BF82-EF876B9AC08D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hoi4ModdingSupporter", "Hoi4ModdingSupporter\Hoi4ModdingSupporter.csproj", "{9520EA7A-3744-4DAC-AE44-888BC6E0FD1A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +11,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B43A8151-228E-482C-BF82-EF876B9AC08D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B43A8151-228E-482C-BF82-EF876B9AC08D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B43A8151-228E-482C-BF82-EF876B9AC08D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B43A8151-228E-482C-BF82-EF876B9AC08D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9520EA7A-3744-4DAC-AE44-888BC6E0FD1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9520EA7A-3744-4DAC-AE44-888BC6E0FD1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9520EA7A-3744-4DAC-AE44-888BC6E0FD1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9520EA7A-3744-4DAC-AE44-888BC6E0FD1A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

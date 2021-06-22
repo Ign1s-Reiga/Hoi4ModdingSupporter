@@ -1,0 +1,15 @@
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\Hoi4ModdingSupporter.exe.config
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\Hoi4ModdingSupporter.exe
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\bin\Debug\Hoi4ModdingSupporter.pdb
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.csproj.AssemblyReference.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\MainWindow.g.cs
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\App.g.cs
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter_MarkupCompile.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter_MarkupCompile.lref
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\MainWindow.baml
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.g.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.Properties.Resources.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.csproj.GenerateResource.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.csproj.CoreCompileInputs.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.exe
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\Hoi4ModdingSupporter.pdb

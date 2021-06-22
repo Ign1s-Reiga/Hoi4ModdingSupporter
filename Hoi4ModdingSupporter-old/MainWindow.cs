@@ -14,6 +14,7 @@ namespace Hoi4ModdingSupporter
     public partial class MainWindow : Form
     {
         private string filePath;
+        private string fileName;
 
         public MainWindow()
         {
@@ -27,7 +28,7 @@ namespace Hoi4ModdingSupporter
 
         private void openProjectToolMenuItem_Click(object sender, EventArgs e)
         {
-            FolderBrowserDialog dialog = new FolderBrowserDialog();
+            FolderBrowserDialog dialog = new();
             
             if (dialog.ShowDialog() == DialogResult.Cancel)
             {
@@ -38,9 +39,10 @@ namespace Hoi4ModdingSupporter
             dialog.Dispose();
 
             DirectoryInfo info = new DirectoryInfo(this.filePath);
+            this.fileName = info.Name;
         }
 
-        private void editEToolMenuItem_Click(object sender, EventArgs e)
+        private void editToolMenuItem_Click(object sender, EventArgs e)
         {
 
         }
@@ -56,9 +58,6 @@ namespace Hoi4ModdingSupporter
             this.Close();
         }
 
-        private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
-        {
 
-        }
     }
 }
