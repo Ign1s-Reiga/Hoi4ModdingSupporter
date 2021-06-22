@@ -1,11 +1,19 @@
 {
   "runtimeTarget": {
-    "name": ".NETCoreApp,Version=v3.1",
+    "name": ".NETCoreApp,Version=v5.0",
     "signature": ""
   },
   "compilationOptions": {},
   "targets": {
-    ".NETCoreApp,Version=v3.1": {
+    ".NETCoreApp,Version=v5.0": {
+      "Hoi4ModdingSupporter/1.0.0": {
+        "dependencies": {
+          "ExpTreeLib": "3.2.0"
+        },
+        "runtime": {
+          "Hoi4ModdingSupporter.dll": {}
+        }
+      },
       "ExpTreeLib/3.2.0": {
         "runtime": {
           "lib/ExpTreeLib.dll": {
@@ -17,6 +25,11 @@
     }
   },
   "libraries": {
+    "Hoi4ModdingSupporter/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
     "ExpTreeLib/3.2.0": {
       "type": "package",
       "serviceable": true,

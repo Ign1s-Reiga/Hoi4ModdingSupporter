@@ -1,8 +1,21 @@
 {
   "version": 2,
-  "dgSpecHash": "I/JkYrq0dC67+n28INAlUangpKbS7+it0+kEvZzU0KphKIlRjf5iQDyRRbJIzI+ipP7kbUSYBQXemqVgCdSuYQ==",
+  "dgSpecHash": "ji4rYTGp7fHiNeH8l9gIaNceaEVlIkQUAYiDNLsaUc0WodVOUqKMuEgPPnqjtJiKBMpu+G3t02YDajSZG79Zgw==",
   "success": true,
   "projectFilePath": "D:\\Hoi4Modding\\Hoi4ModdingSupporter\\Hoi4ModdingSupporter\\Hoi4ModdingSupporter.csproj",
-  "expectedPackageFiles": [],
-  "logs": []
+  "expectedPackageFiles": [
+    "C:\\Users\\Re1ga\\.nuget\\packages\\exptreelib\\3.2.0\\exptreelib.3.2.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "パッケージ 'ExpTreeLib 3.2.0' はプロジェクトのターゲット フレームワーク 'net5.0-windows7.0' ではなく '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8' を使用して復元されました。このパッケージは、使用しているプロジェクトとの完全な互換性がない可能性があります。",
+      "libraryId": "ExpTreeLib",
+      "targetGraphs": [
+        "net5.0-windows7.0"
+      ]
+    }
+  ]
 }

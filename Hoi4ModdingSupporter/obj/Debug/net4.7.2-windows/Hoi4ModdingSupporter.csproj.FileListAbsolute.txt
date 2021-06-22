@@ -1,0 +1,8 @@
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.csproj.AssemblyReference.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.MainWindow.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.Properties.Resources.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.VersionPopup.resources
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.csproj.GenerateResource.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.AssemblyInfoInputs.cache
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.AssemblyInfo.cs
+D:\Hoi4Modding\Hoi4ModdingSupporter\Hoi4ModdingSupporter\obj\Debug\net4.7.2-windows\Hoi4ModdingSupporter.csproj.CoreCompileInputs.cache

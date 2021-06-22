@@ -42,6 +42,7 @@ namespace Hoi4ModdingSupporter
             this.helpToolMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.versionToolMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.scriptEditor = new System.Windows.Forms.RichTextBox();
+            this.expTree1 = new ExpTreeLib.ExpTree();
             this.menuBar.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -138,17 +139,28 @@ namespace Hoi4ModdingSupporter
             // 
             // scriptEditor
             // 
-            this.scriptEditor.Location = new System.Drawing.Point(665, 91);
+            this.scriptEditor.Location = new System.Drawing.Point(764, 27);
             this.scriptEditor.Name = "scriptEditor";
-            this.scriptEditor.Size = new System.Drawing.Size(271, 398);
+            this.scriptEditor.Size = new System.Drawing.Size(420, 834);
             this.scriptEditor.TabIndex = 1;
             this.scriptEditor.Text = "";
+            // 
+            // expTree1
+            // 
+            this.expTree1.AllowFolderRename = false;
+            this.expTree1.Location = new System.Drawing.Point(0, 27);
+            this.expTree1.Name = "expTree1";
+            this.expTree1.ShowRootLines = false;
+            this.expTree1.Size = new System.Drawing.Size(200, 834);
+            this.expTree1.StartUpDirectory = ExpTreeLib.ExpTree.StartDir.Desktop;
+            this.expTree1.TabIndex = 3;
             // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1184, 861);
+            this.Controls.Add(this.expTree1);
             this.Controls.Add(this.scriptEditor);
             this.Controls.Add(this.menuBar);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -176,6 +188,7 @@ namespace Hoi4ModdingSupporter
         private System.Windows.Forms.ToolStripMenuItem endToolMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveAsToolMenuItem1;
         private System.Windows.Forms.RichTextBox scriptEditor;
+        private ExpTreeLib.ExpTree expTree1;
     }
 }
 

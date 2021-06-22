@@ -1,11 +1,36 @@
 {
   "version": 3,
   "targets": {
-    ".NETCoreApp,Version=v3.1": {}
+    "net5.0-windows7.0": {
+      "ExpTreeLib/3.2.0": {
+        "type": "package",
+        "compile": {
+          "lib/ExpTreeLib.dll": {}
+        },
+        "runtime": {
+          "lib/ExpTreeLib.dll": {}
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "ExpTreeLib/3.2.0": {
+      "sha512": "whnqDe2ZE1js51VD87BoeOSpGMvnrfH3Y/oSRiG0lTiHKtyylIl2UYomnlyKcO/CP2kCkp4dVzT4WzSi5mwsTQ==",
+      "type": "package",
+      "path": "exptreelib/3.2.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "exptreelib.3.2.0.nupkg.sha512",
+        "exptreelib.nuspec",
+        "lib/ExpTreeLib.dll"
+      ]
+    }
+  },
   "projectFileDependencyGroups": {
-    ".NETCoreApp,Version=v3.1": []
+    "net5.0-windows7.0": [
+      "ExpTreeLib >= 3.2.0"
+    ]
   },
   "packageFolders": {
     "C:\\Users\\Re1ga\\.nuget\\packages\\": {},
@@ -29,15 +54,15 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "netcoreapp3.1"
+        "net5.0-windows7.0"
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "netcoreapp3.1": {
-          "targetAlias": "netcoreapp3.1",
+        "net5.0-windows7.0": {
+          "targetAlias": "net5.0-windows",
           "projectReferences": {}
         }
       },
@@ -48,8 +73,14 @@
       }
     },
     "frameworks": {
-      "netcoreapp3.1": {
-        "targetAlias": "netcoreapp3.1",
+      "net5.0-windows7.0": {
+        "targetAlias": "net5.0-windows",
+        "dependencies": {
+          "ExpTreeLib": {
+            "target": "Package",
+            "version": "[3.2.0, )"
+          }
+        },
         "imports": [
           "net461",
           "net462",
@@ -71,5 +102,17 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.301\\RuntimeIdentifierGraph.json"
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "パッケージ 'ExpTreeLib 3.2.0' はプロジェクトのターゲット フレームワーク 'net5.0-windows7.0' ではなく '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8' を使用して復元されました。このパッケージは、使用しているプロジェクトとの完全な互換性がない可能性があります。",
+      "libraryId": "ExpTreeLib",
+      "targetGraphs": [
+        "net5.0-windows7.0"
+      ]
+    }
+  ]
 }
