@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.WindowsAPICodePack.Dialogs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,9 +21,29 @@ namespace Hoi4ModdingSupporter
     /// </summary>
     public partial class MainWindow : Window
     {
+        private string fullPath;
+        private string folderName;
+
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        private void newProject(object sender, RoutedEventArgs e)
+        {
+            CommonOpenFileDialog dialog = new CommonOpenFileDialog();
+            dialog.IsFolderPicker = true;
+            dialog.Title = "Select Project Folder...";
+            dialog.InitialDirectory = @"C:\Windows\System32";
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                this.fullPath = dialog.FileName;
+                string[] folderNames = fullPath.Split(Convert.ToChar(@"\"));
+                this.folderName = folderNames.Last();
+            }
+
+
         }
 
         private void showAbout(object sender, RoutedEventArgs e)
