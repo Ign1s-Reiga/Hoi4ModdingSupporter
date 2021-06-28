@@ -1,7 +1,7 @@
 ﻿# Hoi4 Modding Supporter
 
-Hoi4 Modding Supporter is a Hearts of Iron4 modding tool.
-This tool support your hoi4 modding.
+Hoi4 Modding Supporter is a Hearts of Iron4 modding tool.<br>
+This tool support your hoi4 modding.<br>
 This project based on [Focus Tree And Event Manager]().
 
 ## How to Use
@@ -31,7 +31,7 @@ Please debug or run project "Hoi4ModdingSupporter".
 
 ## Note
 
-This tool is still in alpha version, so it may causes crash.
+This tool is still in alpha version, so it may causes crash.<br>
 Please understand.
 
 ## Author
@@ -40,4 +40,5 @@ Please understand.
 * remrem4862@gmail.com
 
 ## License
-This tool is under the GNU Lasser General Public License Version 3. See [LICENSE](LICENSE.md) for the full license text.
+This tool is under the GNU Lesser General Public License Version 3.<br>
+See [LICENSE](LICENSE.md) for the full license text.

@@ -34,13 +34,16 @@ namespace Hoi4ModdingSupporter
             CommonOpenFileDialog dialog = new CommonOpenFileDialog();
             dialog.IsFolderPicker = true;
             dialog.Title = "Select Project Folder...";
-            dialog.InitialDirectory = @"C:\Windows\System32";
+            dialog.InitialDirectory = @"C:\Users\" + Environment.UserName + @"\";
+            dialog.Multiselect = false;
 
             if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
             {
                 this.fullPath = dialog.FileName;
                 string[] folderNames = fullPath.Split(Convert.ToChar(@"\"));
                 this.folderName = folderNames.Last();
+
+
             }
 
 
