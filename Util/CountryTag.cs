@@ -8,97 +8,117 @@ namespace Hoi4ModdingSupporter.Util
 {
     enum CountryTag
     {
-        [StringValue("アフガニスタン")]
+        [StringValue("Afghanistan")]
         AFG,
-        [StringValue("アルバニア")]
+        [StringValue("Albania")]
         ALB,
-        [StringValue("アルジェリア")]
+        [StringValue("Algeria")]
         ALG,
-        [StringValue("アンゴラ")]
+        [StringValue("Angola")]
         ANG,
-        [StringValue("アラビア")]
+        [StringValue("Arabia")]
         ARA,
-        [StringValue("アルゼンチン")]
+        [StringValue("Argentina")]
         ARG,
-        [StringValue("アルメニア")]
+        [StringValue("Armenia")]
         ARM,
-        [StringValue("オーストラリア")]
+        [StringValue("Australia")]
         AST,
-        [StringValue("オーストリア")]
+        [StringValue("Austria")]
         AUS,
-        [StringValue("アゼルバイジャン")]
+        [StringValue("Azerbaijan")]
         AZR,
-        [StringValue("バハマ")]
+        [StringValue("Bahama")]
         BAH,
-        [StringValue("バルト会議")]
+        [StringValue("Baltic")]
         BAL,
-        [StringValue("バングラデシュ")]
+        [StringValue("Bangladesh")]
         BAN,
-        [StringValue("イギリス領アンティル")]
+        [StringValue("British Antilles")]
         BAS,
-        [StringValue("バイエルン")]
+        [StringValue("Bavaria")]
         BAY,
-        [StringValue("ベルギー")]
+        [StringValue("Belgium")]
         BEL,
-        [StringValue("ベラルーシ")]
+        [StringValue("Belarus")]
         BLR,
-        [StringValue("ベリーズ")]
+        [StringValue("Belize")]
         BLZ,
-        [StringValue("ボリビア")]
+        [StringValue("Bolivia")]
         BOL,
-        [StringValue("ボスニア")]
+        [StringValue("Bosnia-Herzegovina")]
         BOS,
-        [StringValue("ボツワナ")]
+        [StringValue("Botswana")]
         BOT,
-        [StringValue("ブラジル")]
+        [StringValue("Brazil")]
         BRA,
-        [StringValue("ブルンジ")]
+        [StringValue("Burundi")]
         BRD,
-        [StringValue("ブルターニュ")]
+        [StringValue("Brittany")]
         BRI,
-        [StringValue("ビルマ")]
+        [StringValue("Burma")]
         BRM,
-        [StringValue("ブルガリア")]
+        [StringValue("Bulgaria")]
         BUL,
-        [StringValue("ビザンツ")]
+        [StringValue("Byzantine")]
         BYZ,
-        [StringValue("カンボジア")]
+        [StringValue("Cambodia")]
         CAM,
-        [StringValue("カナダ")]
+        [StringValue("Canada")]
         CAN,
-        [StringValue("中央アフリカ")]
+        [StringValue("Central Africa")]
         CAR,
-        [StringValue("カタルーニャ")]
+        [StringValue("Catalunya")]
         CAT,
-        [StringValue("カイエンヌ")]
+        [StringValue("Cayenne")]
         CAY,
-        [StringValue("チャド")]
+        [StringValue("Chad")]
         CHA,
-        [StringValue("中華民国")]
+        [StringValue("China")]
         CHI,
-        [StringValue("チリ")]
+        [StringValue("Chile")]
         CHL,
-        [StringValue("カメルーン")]
+        [StringValue("Cameroon")]
         CMR,
-        [StringValue("コンゴ")]
+        [StringValue("Zaire")]
         COG,
-        [StringValue("コロンビア")]
+        [StringValue("Colombia")]
         COL,
-        [StringValue("コルシカ")]
+        [StringValue("Corsica")]
         COR,
-        [StringValue("コスタリカ")]
+        [StringValue("Costa Rica")]
         COS,
-        [StringValue("オランダ領アンティル")]
+        [StringValue("Netherlands Antilles")]
         CRC,
-        [StringValue("クロアチア")]
+        [StringValue("Croatia")]
         CRO,
-        [StringValue("アメリカ連合国")]
+        [StringValue("Confederacy of American States")]
         CSA,
-        [StringValue("キューバ")]
+        [StringValue("Cuba")]
         CUB,
-        [StringValue("キプロス")]
+        [StringValue("Cyprus")]
         CYP,
-        [StringValue("チェコスロバキア")]
+        [StringValue("Czechoslovakia")]
         CZE,
+        [StringValue("Dahomey")]
+        DAH,
+        [StringValue("East Germany")]
+        DDR,
+        [StringValue("Denmark")]
+        DEN,
+        [StringValue("Djibouti")]
+        DJI,
+        [StringValue("Dominica")]
+        DOM,
+        [StringValue("Ecuador")]
+        ECU,
+        [StringValue("Egypt")]
+        EGY,
+        [StringValue("El Salvador")]
+        ELS,
+        [StringValue("England")]
+        ENG,
+        [StringValue("Guinea")]
+        EQG,
     }
 }
