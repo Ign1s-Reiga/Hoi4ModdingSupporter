@@ -6,15 +6,10 @@ namespace Hoi4ModdingSupporter.Util
 {
     public class ProjectFile
     {
-        public ProjectFile()
+        public static void CreateProjeectFile(string projectName, string path)
         {
-
-        }
-
-        public void createInfoFile(string projectName, string path)
-        {
-            FileStream stream = File.Create(path + @"\" + projectName + @".hoi4ms");
-            string[] lines = { "projectName: " + projectName, "version: Latest", "createTime: " + DateTime.Now.ToString() };
+            FileStream stream = File.Create(path);
+            string[] lines = { "projectName: " + projectName, "version: " + MainWindow.Version, "createTime: " + DateTime.Now.ToString() };
 
             StreamWriter writer = new StreamWriter(stream);
 
@@ -23,12 +18,10 @@ namespace Hoi4ModdingSupporter.Util
                 writer.WriteLine(line);
             }
             writer.Close();
-            writer.Dispose();
             stream.Close();
-            stream.Dispose();
         }
 
-        public List<string> readInfoFile(string path)
+        public static List<string> ReadProjectFile(string path)
         {
             StreamReader reader = new StreamReader(path + @"\.project");
             List<string> list = new List<string>();
@@ -42,7 +35,7 @@ namespace Hoi4ModdingSupporter.Util
             return list;
         }
 
-        public void saveInfoFile(string path)
+        public static void SaveProjectFile(string path)
         {
             try
             {
@@ -60,6 +53,11 @@ namespace Hoi4ModdingSupporter.Util
             {
                 Console.WriteLine(e.Message);
             }
+        }
+
+        public static void ParseProjectFile()
+        {
+
         }
     }
 }

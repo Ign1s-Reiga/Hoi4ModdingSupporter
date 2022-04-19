@@ -20,5 +20,20 @@ namespace Hoi4ModdingSupporter
         {
             InitializeComponent();
         }
+
+        private void Accept(object sender, RoutedEventArgs e)
+        {
+            if (!fileName.Text.EndsWith(".h4ms")) return;
+        }
+
+        private void Cancel(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
+        private void OpenSelectFolderDialog(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

@@ -105,6 +105,8 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Container\EventContainer.cs" />
+    <Compile Include="Container\OptionContainer.cs" />
+    <Compile Include="Container\TriggerContainer.cs" />
     <Compile Include="NewProject.xaml.cs">
       <DependentUpon>NewProject.xaml</DependentUpon>
     </Compile>
@@ -150,7 +152,8 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
-    <Compile Include="Util\Parser.cs" />
+    <Compile Include="Util\StringValueAttribute.cs" />
+    <Compile Include="Util\CountryTag.cs" />
     <Compile Include="Util\ProjectFile.cs" />
     <None Include="README.md" />
     <None Include="ReigaDev.pfx" />

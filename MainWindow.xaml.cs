@@ -23,14 +23,23 @@ namespace Hoi4ModdingSupporter
     {
         private string fullPath;
         private string folderName;
+        public static string Version = "1.0.0";
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void newProject(object sender, RoutedEventArgs e)
+        private void OpenProject(object sender, RoutedEventArgs e)
         {
+
+        }
+
+        private void NewProject(object sender, RoutedEventArgs e)
+        {
+
+            NewProject newProject = new NewProject();
+            newProject.Show();
             CommonOpenFileDialog dialog = new CommonOpenFileDialog();
             dialog.IsFolderPicker = true;
             dialog.Title = "Select Project Folder...";
@@ -49,7 +58,7 @@ namespace Hoi4ModdingSupporter
 
         }
 
-        private void showAbout(object sender, RoutedEventArgs e)
+        private void ShowAbout(object sender, RoutedEventArgs e)
         {
             string message = "Hoi4 Modding Supporter\nVersion: alpha-1";
             string title = "About";
@@ -58,7 +67,7 @@ namespace Hoi4ModdingSupporter
             MessageBox.Show(message, title, button);
         }
 
-        private void endApplication(object sender, RoutedEventArgs e)
+        private void EndApplication(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
