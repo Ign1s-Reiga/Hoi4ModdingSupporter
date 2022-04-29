@@ -1,8 +1,7 @@
-﻿# Hoi4 Modding Supporter
+# Hoi4 Modding Supporter
 
-Hoi4 Modding Supporter is a Hearts of Iron4 modding tool.<br>
-This tool support your hoi4 modding.<br>
-This project based on [Focus Tree And Event Manager]().
+Hoi4 Modding Supporter is a Hearts of Iron4 modding tool  
+This tool support your hoi4 modding.  
 
 ## How to Use
 No Image
