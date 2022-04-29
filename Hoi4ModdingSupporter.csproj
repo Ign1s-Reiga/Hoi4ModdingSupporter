@@ -152,6 +152,7 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <Compile Include="Util\Setting.cs" />
     <Compile Include="Util\StringValueAttribute.cs" />
     <Compile Include="Util\CountryTag.cs" />
     <Compile Include="Util\ProjectFile.cs" />

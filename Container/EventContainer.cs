@@ -12,7 +12,7 @@ namespace Hoi4ModdingSupporter.Container
     class EventContainer
     {
         [DataMember(Name = "id")]
-        public string ID { get; set; }
+        public string Id { get; set; }
 
         [DataMember(Name = "title")]
         public string Title { get; set; }
@@ -27,7 +27,7 @@ namespace Hoi4ModdingSupporter.Container
         public bool IsFiredOnce { get; set; }
 
         [DataMember(Name = "is_triggerd")]
-        public bool IsTriggerdOnly { get; set; }
+        public bool IsTriggeredOnly { get; set; }
 
         [DataMember(Name = "is_major")]
         public bool IsMajor { get; set; }
