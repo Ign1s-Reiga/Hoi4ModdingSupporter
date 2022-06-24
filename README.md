@@ -35,8 +35,6 @@ Please understand.
 
 ## Author
 * Reiga
-* Private
-* remrem4862@gmail.com
 
 ## License
 This tool is under the GNU Lesser General Public License Version 3.<br>
