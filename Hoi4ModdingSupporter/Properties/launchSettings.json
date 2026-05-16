@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Hoi4ModdingSupporter (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Hoi4ModdingSupporter (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

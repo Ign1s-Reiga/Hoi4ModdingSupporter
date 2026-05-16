@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+  x:Class="Hoi4ModdingSupporter.Views.HomeView"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:local="using:Hoi4ModdingSupporter.Views"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+  xmlns:ui="using:CommunityToolkit.WinUI"
+  xmlns:controls="using:Hoi4ModdingSupporter.Controls"
+  mc:Ignorable="d"
+>
+  <StackPanel Margin="36">
+    <controls:HeaderText
+      Margin="0,0,0,36"
+      TitleText="Home"
+      TextStyle="{StaticResource TitleTextBlockStyle}"
+    />
+    <controls:HeaderText
+      Margin="0,0,0,12"
+      TitleText="Recent Projects"
+      TextStyle="{StaticResource SubtitleTextBlockStyle}"
+    />
+    <ItemsView Height="240">
+      
+    </ItemsView>
+    <controls:HeaderText
+      Margin="0,24,0,12"
+      TitleText="Getting Started"
+      TextStyle="{StaticResource SubtitleTextBlockStyle}"
+    />
+    <StackPanel Spacing="8">
+      <toolkit:SettingsCard
+        IsClickEnabled="True"
+        HeaderIcon="NewFolder"
+        Header="Create New Project"
+      />
+      <toolkit:SettingsCard
+        IsClickEnabled="True"
+        HeaderIcon="{ui:FontIcon Glyph=&#xE838;}"
+        Header="Open Project"
+      />
+    </StackPanel>
+  </StackPanel>
+</Page>
