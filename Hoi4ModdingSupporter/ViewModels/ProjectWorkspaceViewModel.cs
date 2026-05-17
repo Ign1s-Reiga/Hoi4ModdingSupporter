@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentResults;
 using Hoi4ModdingSupporter.Models;
+using Microsoft.UI.Xaml;
 
 namespace Hoi4ModdingSupporter.ViewModels {
     public class ProjectWorkspaceViewModel : ObservableObject {
@@ -68,6 +69,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private string statusMessage = string.Empty;
         private bool hasUnsavedChanges;
         private bool isSettingEditorContent;
+        private WorkspaceSection currentSection = WorkspaceSection.VisualEditor;
 
         public ProjectWorkspaceViewModel(RecentProjectRecord project) {
             Project = project;
@@ -94,6 +96,29 @@ namespace Hoi4ModdingSupporter.ViewModels {
         }
 
         public RecentProjectRecord Project { get; }
+
+        public WorkspaceSection CurrentSection {
+            get => currentSection;
+            set {
+                if (SetProperty(ref currentSection, value)) {
+                    OnPropertyChanged(nameof(VisualEditorVisibility));
+                    OnPropertyChanged(nameof(ModAssetsVisibility));
+                    OnPropertyChanged(nameof(GameAssetsVisibility));
+                }
+            }
+        }
+
+        public Visibility VisualEditorVisibility => CurrentSection == WorkspaceSection.VisualEditor
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        public Visibility ModAssetsVisibility => CurrentSection == WorkspaceSection.ModAssets
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        public Visibility GameAssetsVisibility => CurrentSection == WorkspaceSection.GameAssets
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         public ObservableCollection<ProjectWorkspaceFile> Files { get; } = [];
 
@@ -294,6 +319,17 @@ namespace Hoi4ModdingSupporter.ViewModels {
             UnloadEditor();
 
             return Result.Ok();
+        }
+
+        public void DiscardSelectedFileChanges() {
+            if (SelectedFile?.IsTextFile == true) {
+                var result = LoadTextFile(SelectedFile);
+                if (result.IsSuccess) {
+                    return;
+                }
+            }
+
+            UnloadEditor();
         }
 
         public void UnloadEditor() {

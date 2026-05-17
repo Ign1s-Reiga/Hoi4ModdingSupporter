@@ -37,12 +37,6 @@
       <Grid RowSpacing="12">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
-          <RowDefinition Height="2*" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -58,13 +52,16 @@
           />
         </StackPanel>
 
-        <Grid Grid.Row="1" RowSpacing="8">
+        <Grid
+          Grid.Row="1"
+          RowSpacing="8"
+          Visibility="{x:Bind ViewModel.VisualEditorVisibility, Mode=OneWay}"
+        >
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-
           <ComboBox
             DisplayMemberPath="DisplayName"
             IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
@@ -102,78 +99,90 @@
           </ListView>
         </Grid>
 
-        <TextBlock
-          Grid.Row="2"
-          Text="Mod Assets"
-          Style="{StaticResource BodyStrongTextBlockStyle}"
-        />
-
-        <ComboBox
-          Grid.Row="3"
-          DisplayMemberPath="DisplayName"
-          ItemsSource="{x:Bind ViewModel.AssetGroups, Mode=OneWay}"
-          SelectedItem="{x:Bind ViewModel.SelectedAssetGroup, Mode=TwoWay}"
-        />
-
-        <ListView
-          Grid.Row="4"
-          IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
-          ItemsSource="{x:Bind ViewModel.SelectedAssetEntries, Mode=OneWay}"
-          SelectionChanged="OnFileSelectionChanged"
+        <Grid
+          Grid.Row="1"
+          RowSpacing="8"
+          Visibility="{x:Bind ViewModel.ModAssetsVisibility, Mode=OneWay}"
         >
-          <ListView.ItemTemplate>
-            <DataTemplate x:DataType="models:ProjectWorkspaceFile">
-              <StackPanel Padding="0,4">
-                <TextBlock
-                  Text="{x:Bind RelativePath}"
-                  TextTrimming="CharacterEllipsis"
-                />
-                <TextBlock
-                  Text="{x:Bind Extension}"
-                  Foreground="{StaticResource TextFillColorTertiaryBrush}"
-                />
-              </StackPanel>
-            </DataTemplate>
-          </ListView.ItemTemplate>
-        </ListView>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
 
-        <TextBlock
-          Grid.Row="5"
-          Text="Game Assets"
-          Style="{StaticResource BodyStrongTextBlockStyle}"
-        />
+          <ComboBox
+            DisplayMemberPath="DisplayName"
+            ItemsSource="{x:Bind ViewModel.AssetGroups, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedAssetGroup, Mode=TwoWay}"
+          />
 
-        <ComboBox
-          Grid.Row="6"
-          DisplayMemberPath="DisplayName"
-          ItemsSource="{x:Bind ViewModel.GameAssetGroups, Mode=OneWay}"
-          SelectedItem="{x:Bind ViewModel.SelectedGameAssetGroup, Mode=TwoWay}"
-        />
+          <ListView
+            Grid.Row="1"
+            IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.SelectedAssetEntries, Mode=OneWay}"
+            SelectionChanged="OnFileSelectionChanged"
+          >
+            <ListView.ItemTemplate>
+              <DataTemplate x:DataType="models:ProjectWorkspaceFile">
+                <StackPanel Padding="0,4">
+                  <TextBlock
+                    Text="{x:Bind RelativePath}"
+                    TextTrimming="CharacterEllipsis"
+                  />
+                  <TextBlock
+                    Text="{x:Bind Extension}"
+                    Foreground="{StaticResource TextFillColorTertiaryBrush}"
+                  />
+                </StackPanel>
+              </DataTemplate>
+            </ListView.ItemTemplate>
+          </ListView>
+        </Grid>
 
-        <ListView
-          Grid.Row="7"
-          IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
-          ItemsSource="{x:Bind ViewModel.SelectedGameAssetEntries, Mode=OneWay}"
-          SelectionChanged="OnFileSelectionChanged"
+        <Grid
+          Grid.Row="1"
+          RowSpacing="8"
+          Visibility="{x:Bind ViewModel.GameAssetsVisibility, Mode=OneWay}"
         >
-          <ListView.ItemTemplate>
-            <DataTemplate x:DataType="models:ProjectWorkspaceFile">
-              <StackPanel Padding="0,4">
-                <TextBlock
-                  Text="{x:Bind RelativePath}"
-                  TextTrimming="CharacterEllipsis"
-                />
-                <TextBlock
-                  Text="{x:Bind Extension}"
-                  Foreground="{StaticResource TextFillColorTertiaryBrush}"
-                />
-              </StackPanel>
-            </DataTemplate>
-          </ListView.ItemTemplate>
-        </ListView>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <ComboBox
+            DisplayMemberPath="DisplayName"
+            ItemsSource="{x:Bind ViewModel.GameAssetGroups, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedGameAssetGroup, Mode=TwoWay}"
+          />
+
+          <ListView
+            Grid.Row="1"
+            IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.SelectedGameAssetEntries, Mode=OneWay}"
+            SelectionChanged="OnFileSelectionChanged"
+          >
+            <ListView.ItemTemplate>
+              <DataTemplate x:DataType="models:ProjectWorkspaceFile">
+                <StackPanel Padding="0,4">
+                  <TextBlock
+                    Text="{x:Bind RelativePath}"
+                    TextTrimming="CharacterEllipsis"
+                  />
+                  <TextBlock
+                    Text="{x:Bind Extension}"
+                    Foreground="{StaticResource TextFillColorTertiaryBrush}"
+                  />
+                </StackPanel>
+              </DataTemplate>
+            </ListView.ItemTemplate>
+          </ListView>
+        </Grid>
       </Grid>
 
-      <Grid Grid.Column="1" RowSpacing="12">
+      <Grid
+        Grid.Column="1"
+        RowSpacing="12"
+        Visibility="{x:Bind ViewModel.VisualEditorVisibility, Mode=OneWay}"
+      >
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />

@@ -34,7 +34,10 @@ namespace Hoi4ModdingSupporter.Views {
             var descriptorResult = ModDescriptorReader.Read(file.Path);
             if (descriptorResult.IsSuccess) {
                 ViewModel.AddRecentProject(descriptorResult.Value);
-                Frame.Navigate(typeof(ProjectWorkspaceView), descriptorResult.Value);
+                if (App.MainWindow is MainWindow mainWindow) {
+                    await mainWindow.OpenWorkspaceAsync(descriptorResult.Value);
+                }
+
                 return;
             }
 
@@ -43,7 +46,13 @@ namespace Hoi4ModdingSupporter.Views {
 
         private void OnRecentProjectClicked(object sender, ItemClickEventArgs args) {
             if (args.ClickedItem is RecentProjectRecord project) {
-                Frame.Navigate(typeof(ProjectWorkspaceView), project);
+                _ = OpenRecentProjectAsync(project);
+            }
+        }
+
+        private async System.Threading.Tasks.Task OpenRecentProjectAsync(RecentProjectRecord project) {
+            if (App.MainWindow is MainWindow mainWindow) {
+                await mainWindow.OpenWorkspaceAsync(project);
             }
         }
 

@@ -8,6 +8,10 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Hoi4ModdingSupporter.Views {
     public sealed partial class MainWindow : Window {
+        private RecentProjectRecord? currentWorkspace;
+        private object? selectedNavigationItem;
+        private bool suppressSelectionNavigation;
+
         public MainWindow() {
             InitializeComponent();
 
@@ -19,6 +23,7 @@ namespace Hoi4ModdingSupporter.Views {
             ApplyAppTheme(SettingsRepository.Instance.CurrentSettings.AppTheme);
 
             navView.SelectedItem = navView.MenuItems.OfType<NavigationViewItem>().First();
+            selectedNavigationItem = navView.SelectedItem;
         }
 
         public void ApplyAppTheme(int appTheme) {
@@ -46,25 +51,125 @@ namespace Hoi4ModdingSupporter.Views {
         }
 
         private async void OnSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args) {
+            if (suppressSelectionNavigation) {
+                return;
+            }
+
+            var selectedItem = args.SelectedItemContainer;
+            if (!args.IsSettingsSelected && TryGetWorkspaceSection(selectedItem, out var section)) {
+                if (await SelectWorkspaceSectionAsync(section)) {
+                    selectedNavigationItem = selectedItem;
+                }
+                else {
+                    RestoreSelectedNavigationItem();
+                }
+
+                return;
+            }
+
             var pageType = args.IsSettingsSelected
                 ? typeof(SettingsView)
-                : args.SelectedItemContainer?.Tag switch {
+                : selectedItem?.Tag switch {
                     "HomeView" => typeof(HomeView),
                     _ => null
                 };
 
             if (pageType is not null && navFrame.CurrentSourcePageType != pageType) {
                 if (!await ConfirmCurrentPageCanNavigateAsync()) {
+                    RestoreSelectedNavigationItem();
                     return;
                 }
 
-                navFrame.Navigate(pageType);
+                navFrame.Navigate(pageType, pageType == typeof(ProjectWorkspaceView) ? currentWorkspace : null);
+                selectedNavigationItem = args.IsSettingsSelected
+                    ? navView.SettingsItem
+                    : selectedItem;
             }
+        }
+
+        public async Task OpenWorkspaceAsync(ModDescriptor descriptor) {
+            await OpenWorkspaceAsync(new RecentProjectRecord(
+                FolderPath: descriptor.ProjectFolderPath,
+                DisplayName: descriptor.DisplayName,
+                LastAccessed: DateTime.Now,
+                ImagePath: descriptor.ImagePath
+            ));
+        }
+
+        public async Task OpenWorkspaceAsync(RecentProjectRecord project) {
+            if (!await ConfirmCurrentPageCanNavigateAsync()) {
+                return;
+            }
+
+            currentWorkspace = project;
+            workspaceNavigationItem.Content = project.DisplayName;
+            workspaceNavigationItem.Visibility = Visibility.Visible;
+            var workspaceEditorItem = workspaceNavigationItem.MenuItems.OfType<NavigationViewItem>().FirstOrDefault()
+                ?? workspaceNavigationItem;
+            suppressSelectionNavigation = true;
+            try {
+                navView.SelectedItem = workspaceEditorItem;
+            }
+            finally {
+                suppressSelectionNavigation = false;
+            }
+
+            selectedNavigationItem = workspaceEditorItem;
+            navFrame.Navigate(
+                typeof(ProjectWorkspaceView),
+                new WorkspaceNavigationParameter(project, WorkspaceSection.VisualEditor)
+            );
         }
 
         private async Task<bool> ConfirmCurrentPageCanNavigateAsync() {
             return navFrame.Content is not ProjectWorkspaceView workspace
                 || await workspace.ConfirmNavigationAwayAsync();
+        }
+
+        private async Task<bool> SelectWorkspaceSectionAsync(WorkspaceSection section) {
+            if (currentWorkspace is null) {
+                RestoreSelectedNavigationItem();
+                return false;
+            }
+
+            if (navFrame.Content is ProjectWorkspaceView workspace) {
+                return await workspace.TrySelectSectionAsync(section);
+            }
+
+            if (!await ConfirmCurrentPageCanNavigateAsync()) {
+                return false;
+            }
+
+            navFrame.Navigate(
+                typeof(ProjectWorkspaceView),
+                new WorkspaceNavigationParameter(currentWorkspace, section)
+            );
+            return true;
+        }
+
+        private static bool TryGetWorkspaceSection(NavigationViewItemBase? item, out WorkspaceSection section) {
+            section = WorkspaceSection.VisualEditor;
+            return item is NavigationViewItem navigationItem && navigationItem.Tag switch {
+                "Workspace" or "WorkspaceEditor" => true,
+                "WorkspaceModAssets" => SetSection(WorkspaceSection.ModAssets, out section),
+                "WorkspaceGameAssets" => SetSection(WorkspaceSection.GameAssets, out section),
+                _ => false
+            };
+        }
+
+        private static bool SetSection(WorkspaceSection value, out WorkspaceSection section) {
+            section = value;
+            return true;
+        }
+
+        private void RestoreSelectedNavigationItem() {
+            suppressSelectionNavigation = true;
+            try {
+                navView.SelectedItem = selectedNavigationItem;
+            }
+            finally {
+                suppressSelectionNavigation = false;
+            }
         }
     }
 }

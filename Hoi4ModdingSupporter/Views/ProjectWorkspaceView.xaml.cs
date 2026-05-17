@@ -23,6 +23,9 @@ namespace Hoi4ModdingSupporter.Views {
 
         protected override void OnNavigatedTo(NavigationEventArgs e) {
             ViewModel = e.Parameter switch {
+                WorkspaceNavigationParameter parameter => new ProjectWorkspaceViewModel(parameter.Project) {
+                    CurrentSection = parameter.Section
+                },
                 ModDescriptor descriptor => new ProjectWorkspaceViewModel(ToRecentProject(descriptor)),
                 RecentProjectRecord recentProject => new ProjectWorkspaceViewModel(recentProject),
                 _ => ViewModel
@@ -37,6 +40,20 @@ namespace Hoi4ModdingSupporter.Views {
                 LastAccessed: DateTime.Now,
                 ImagePath: descriptor.ImagePath
             );
+        }
+
+        public async Task<bool> TrySelectSectionAsync(WorkspaceSection section) {
+            if (ViewModel.CurrentSection == section) {
+                return true;
+            }
+
+            if (!await ConfirmNavigationAwayAsync()) {
+                return false;
+            }
+
+            ViewModel.CurrentSection = section;
+            Bindings.Update();
+            return true;
         }
 
         public async Task<bool> ConfirmNavigationAwayAsync() {
@@ -56,6 +73,7 @@ namespace Hoi4ModdingSupporter.Views {
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Secondary) {
+                ViewModel.DiscardSelectedFileChanges();
                 return true;
             }
 
