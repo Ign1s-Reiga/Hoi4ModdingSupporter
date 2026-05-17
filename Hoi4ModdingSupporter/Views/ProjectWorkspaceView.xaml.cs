@@ -55,8 +55,12 @@ namespace Hoi4ModdingSupporter.Views {
             Bindings.Update();
         }
 
+        private void OnAssetGroupSelectionChanged(object sender, SelectionChangedEventArgs args) {
+            Bindings.Update();
+        }
+
         private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) {
-            if (args.PropertyName is nameof(ViewModel.SelectedFile) or nameof(ViewModel.StatusMessage)) {
+            if (args.PropertyName is nameof(ViewModel.SelectedFile) or nameof(ViewModel.SelectedAssetGroup) or nameof(ViewModel.StatusMessage)) {
                 Bindings.Update();
             }
         }

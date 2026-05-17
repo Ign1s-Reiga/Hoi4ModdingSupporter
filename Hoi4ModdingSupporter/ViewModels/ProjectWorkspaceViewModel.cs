@@ -14,6 +14,17 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private const int MaxProjectFileCount = 5000;
         private const long MaxTextFileSizeBytes = 1024 * 1024;
 
+        private static readonly ModAssetArea[] AssetAreas = [
+            new("common", "Common"),
+            new("events", "Events"),
+            new("gfx", "GFX"),
+            new("history", "History"),
+            new("interface", "Interface"),
+            new("map", "Map"),
+            new("music", "Music"),
+            new("localisation", "Localisation")
+        ];
+
         private static readonly HashSet<string> ExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase) {
             ".git",
             ".vs",
@@ -35,6 +46,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
         };
 
         private ProjectWorkspaceFile? selectedFile;
+        private ModAssetGroup? selectedAssetGroup;
         private string selectedFileContent = string.Empty;
         private string statusMessage = string.Empty;
         private bool hasUnsavedChanges;
@@ -60,6 +72,19 @@ namespace Hoi4ModdingSupporter.ViewModels {
         public RecentProjectRecord Project { get; }
 
         public ObservableCollection<ProjectWorkspaceFile> Files { get; } = [];
+
+        public ObservableCollection<ModAssetGroup> AssetGroups { get; } = [];
+
+        public ModAssetGroup? SelectedAssetGroup {
+            get => selectedAssetGroup;
+            set {
+                if (SetProperty(ref selectedAssetGroup, value)) {
+                    OnPropertyChanged(nameof(SelectedAssetEntries));
+                }
+            }
+        }
+
+        public ObservableCollection<ProjectWorkspaceFile> SelectedAssetEntries => SelectedAssetGroup?.Entries ?? [];
 
         public ProjectWorkspaceFile? SelectedFile {
             get => selectedFile;
@@ -102,6 +127,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public Result RefreshFiles() {
             Files.Clear();
+            AssetGroups.Clear();
+            SelectedAssetGroup = null;
             SelectedFile = null;
             SelectedFileContent = string.Empty;
             HasUnsavedChanges = false;
@@ -115,17 +142,18 @@ namespace Hoi4ModdingSupporter.ViewModels {
             }
 
             return Result.Try(() => {
-                var stoppedAtLimit = false;
+                var stoppedAtFileLimit = false;
                 foreach (var file in EnumerateProjectFiles(Project.FolderPath)) {
                     if (Files.Count >= MaxProjectFileCount) {
-                        stoppedAtLimit = true;
+                        stoppedAtFileLimit = true;
                         break;
                     }
 
                     Files.Add(file);
                 }
 
-                StatusMessage = stoppedAtLimit
+                RefreshAssetGroups();
+                StatusMessage = stoppedAtFileLimit
                     ? $"Stopped after loading {MaxProjectFileCount:N0} files."
                     : string.Empty;
 
@@ -296,6 +324,28 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return SelectedFile?.IsTextFile == true;
         }
 
+        private void RefreshAssetGroups() {
+            foreach (var assetArea in AssetAreas) {
+                var entries = new ObservableCollection<ProjectWorkspaceFile>();
+                foreach (var file in Files.Where(file => IsAssetAreaFile(file, assetArea.DirectoryName))) {
+                    entries.Add(file);
+                }
+
+                AssetGroups.Add(new ModAssetGroup(assetArea.DirectoryName, assetArea.DisplayName, entries));
+            }
+
+            SelectedAssetGroup = AssetGroups.FirstOrDefault(group => group.Entries.Count > 0)
+                ?? AssetGroups.FirstOrDefault();
+        }
+
+        private static bool IsAssetAreaFile(ProjectWorkspaceFile file, string areaName) {
+            var firstSegment = file.RelativePath
+                .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+
+            return string.Equals(firstSegment, areaName, StringComparison.OrdinalIgnoreCase);
+        }
+
         private void SetEditorContent(string content, bool hasUnsavedChanges) {
             SetProperty(ref selectedFileContent, content, nameof(SelectedFileContent));
             HasUnsavedChanges = hasUnsavedChanges;
@@ -308,5 +358,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
             return result;
         }
+
+        private record ModAssetArea(string DirectoryName, string DisplayName);
     }
 }

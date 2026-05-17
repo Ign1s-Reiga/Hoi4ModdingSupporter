@@ -37,6 +37,9 @@
       <Grid RowSpacing="12">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
+          <RowDefinition Height="2*" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -55,6 +58,42 @@
         <ListView
           Grid.Row="1"
           ItemsSource="{x:Bind ViewModel.Files, Mode=OneWay}"
+          SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
+          SelectionChanged="OnFileSelectionChanged"
+        >
+          <ListView.ItemTemplate>
+            <DataTemplate x:DataType="models:ProjectWorkspaceFile">
+              <StackPanel Padding="0,4">
+                <TextBlock
+                  Text="{x:Bind RelativePath}"
+                  TextTrimming="CharacterEllipsis"
+                />
+                <TextBlock
+                  Text="{x:Bind Extension}"
+                  Foreground="{StaticResource TextFillColorTertiaryBrush}"
+                />
+              </StackPanel>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock
+          Grid.Row="2"
+          Text="Mod Assets"
+          Style="{StaticResource BodyStrongTextBlockStyle}"
+        />
+
+        <ComboBox
+          Grid.Row="3"
+          DisplayMemberPath="DisplayName"
+          ItemsSource="{x:Bind ViewModel.AssetGroups, Mode=OneWay}"
+          SelectedItem="{x:Bind ViewModel.SelectedAssetGroup, Mode=TwoWay}"
+          SelectionChanged="OnAssetGroupSelectionChanged"
+        />
+
+        <ListView
+          Grid.Row="4"
+          ItemsSource="{x:Bind ViewModel.SelectedAssetEntries, Mode=OneWay}"
           SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
           SelectionChanged="OnFileSelectionChanged"
         >
