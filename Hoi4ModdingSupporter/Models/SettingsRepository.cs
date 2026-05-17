@@ -14,10 +14,15 @@ namespace Hoi4ModdingSupporter.Models {
             RecentProjects: []
         );
 
-        private readonly string settingsFilePath = Path.Combine(Environment.CurrentDirectory, "settings.json");
-        private readonly int currentVersion = 1;
+        private readonly string settingsDirectoryPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Hoi4ModdingSupporter"
+        );
+        private readonly string settingsFilePath;
 
-        private SettingsRepository() {}
+        private SettingsRepository() {
+            settingsFilePath = Path.Combine(settingsDirectoryPath, "settings.json");
+        }
 
         public Result ReadSettingsFileAsync() {
             if (!File.Exists(settingsFilePath)) {
@@ -36,6 +41,8 @@ namespace Hoi4ModdingSupporter.Models {
 
         public Result SaveSettingsFileAsync(SettingsRecord settings) {
             return Result.Try(() => {
+                Directory.CreateDirectory(settingsDirectoryPath);
+
                 var json = JsonSerializer.Serialize(settings, SettingsSourceContext.Default.SettingsRecord);
                 File.WriteAllText(settingsFilePath, json);
 
