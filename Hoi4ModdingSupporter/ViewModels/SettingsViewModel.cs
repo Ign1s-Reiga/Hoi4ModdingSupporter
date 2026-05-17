@@ -4,6 +4,8 @@ using Hoi4ModdingSupporter.Models;
 
 namespace Hoi4ModdingSupporter.ViewModels {
     public partial class SettingsViewModel : ObservableValidator {
+        private bool isInitializing = true;
+
         [ObservableProperty]
         [Range(0, 2)]
         private int appTheme = 2;
@@ -16,6 +18,19 @@ namespace Hoi4ModdingSupporter.ViewModels {
                         : 2;
 
             ValidateAllProperties();
+            isInitializing = false;
+        }
+
+        partial void OnAppThemeChanged(int value) {
+            if (isInitializing || value is < 0 or > 2) {
+                return;
+            }
+
+            SettingsRepository.Instance.SaveSettingsFileAsync(
+                SettingsRepository.Instance.CurrentSettings with {
+                    AppTheme = value
+                }
+            );
         }
     }
 }

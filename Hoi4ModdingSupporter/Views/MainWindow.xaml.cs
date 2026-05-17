@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Hoi4ModdingSupporter.Models;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,10 +14,24 @@ namespace Hoi4ModdingSupporter.Views {
             this.SetTitleBar(titleBar);
 
             this.AppWindow.SetIcon("Assets/WindowIcon.ico");
-            this.AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode;
             this.AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+            ApplyAppTheme(SettingsRepository.Instance.CurrentSettings.AppTheme);
 
             navView.SelectedItem = navView.MenuItems.OfType<NavigationViewItem>().First();
+        }
+
+        public void ApplyAppTheme(int appTheme) {
+            rootGrid.RequestedTheme = appTheme switch {
+                0 => ElementTheme.Light,
+                1 => ElementTheme.Dark,
+                _ => ElementTheme.Default
+            };
+
+            AppWindow.TitleBar.PreferredTheme = appTheme switch {
+                0 => TitleBarTheme.Light,
+                1 => TitleBarTheme.Dark,
+                _ => TitleBarTheme.UseDefaultAppMode
+            };
         }
 
         private void OnPaneToggleRequested(TitleBar sender, object args) {

@@ -27,7 +27,7 @@
         Header="Change App Theme"
         HeaderIcon="{ui:FontIcon Glyph=&#xE793;}"
       >
-        <ComboBox SelectedIndex="{x:Bind ViewModel.AppTheme}">
+        <ComboBox SelectedIndex="{x:Bind ViewModel.AppTheme, Mode=TwoWay}">
           <x:String>Light</x:String>
           <x:String>Dark</x:String>
           <x:String>Use System Default</x:String>

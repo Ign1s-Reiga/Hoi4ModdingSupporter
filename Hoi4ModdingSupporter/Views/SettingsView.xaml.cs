@@ -6,6 +6,13 @@ namespace Hoi4ModdingSupporter.Views {
         public SettingsViewModel ViewModel { get; } = new();
         public SettingsView() {
             InitializeComponent();
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) {
+            if (args.PropertyName == nameof(ViewModel.AppTheme) && App.MainWindow is MainWindow mainWindow) {
+                mainWindow.ApplyAppTheme(ViewModel.AppTheme);
+            }
         }
     }
 }
