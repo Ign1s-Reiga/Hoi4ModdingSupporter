@@ -29,7 +29,10 @@
     >
       <ItemsView.ItemTemplate>
         <DataTemplate x:DataType="models:RecentProjectRecord">
-          <controls:RecentProjectCard RecentProject="{Binding}" />
+          <controls:RecentProjectCard
+            RecentProject="{Binding}"
+            Tapped="OnRecentProjectCardTapped"
+          />
         </DataTemplate>
       </ItemsView.ItemTemplate>
     </ItemsView>
