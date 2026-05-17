@@ -13,7 +13,8 @@ It provides a user-friendly interface to manage and edit project files, making i
 - National Focus Editor
 - Event, History, Ideology Manager
 - Original Flag & NF Icon Importer
-- Script Editor
+- Visual Mod Editor
+- Use Original Game Asset smoothly, no need to extract them.
 - Build as Standalone application, no need to install any dependencies.
 
 ## Code Style
