@@ -23,19 +23,67 @@
       TitleText="Recent Projects"
       TextStyle="{StaticResource SubtitleTextBlockStyle}"
     />
-    <ItemsView
+    <ListView
       Height="240"
+      IsItemClickEnabled="True"
       ItemsSource="{x:Bind ViewModel.RecentProjects, Mode=OneWay}"
+      ItemClick="OnRecentProjectClicked"
+      SelectionMode="None"
     >
-      <ItemsView.ItemTemplate>
+      <ListView.ItemTemplate>
         <DataTemplate x:DataType="models:RecentProjectRecord">
-          <controls:RecentProjectCard
-            RecentProject="{Binding}"
-            Tapped="OnRecentProjectCardTapped"
-          />
+          <Border
+            Width="280"
+            Height="200"
+            Margin="0,0,12,0"
+            Padding="12"
+            Background="{StaticResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+          >
+            <Grid RowSpacing="10">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="96" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
+
+              <Grid
+                Background="{StaticResource LayerFillColorDefaultBrush}"
+                CornerRadius="6"
+              >
+                <FontIcon
+                  Glyph="&#xE8B7;"
+                  FontSize="28"
+                  Foreground="{StaticResource TextFillColorSecondaryBrush}"
+                />
+              </Grid>
+
+              <TextBlock
+                Grid.Row="1"
+                Text="{x:Bind DisplayName}"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                TextTrimming="CharacterEllipsis"
+              />
+              <TextBlock
+                Grid.Row="2"
+                Text="{x:Bind FolderPath}"
+                Foreground="{StaticResource TextFillColorSecondaryBrush}"
+                TextTrimming="CharacterEllipsis"
+              />
+              <TextBlock
+                Grid.Row="3"
+                Text="{x:Bind LastAccessed}"
+                VerticalAlignment="Bottom"
+                Foreground="{StaticResource TextFillColorTertiaryBrush}"
+              />
+            </Grid>
+          </Border>
         </DataTemplate>
-      </ItemsView.ItemTemplate>
-    </ItemsView>
+      </ListView.ItemTemplate>
+    </ListView>
     <controls:HeaderText
       Margin="0,24,0,12"
       TitleText="Getting Started"

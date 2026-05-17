@@ -43,11 +43,14 @@ namespace Hoi4ModdingSupporter.Views {
         }
 
         private void OnSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args) {
-            var selectedItem = (NavigationViewItem)navView.SelectedItem;
-            if (selectedItem is NavigationViewItem item) {
-                var tag = args.IsSettingsSelected ? "SettingsView" : (string)item.Tag;
+            var pageType = args.IsSettingsSelected
+                ? typeof(SettingsView)
+                : args.SelectedItemContainer?.Tag switch {
+                    "HomeView" => typeof(HomeView),
+                    _ => null
+                };
 
-                Type? pageType = Type.GetType($"Hoi4ModdingSupporter.Views.{tag}");
+            if (pageType is not null && navFrame.CurrentSourcePageType != pageType) {
                 navFrame.Navigate(pageType);
             }
         }

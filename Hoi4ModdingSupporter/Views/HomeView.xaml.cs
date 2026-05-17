@@ -1,11 +1,9 @@
 using System;
 using System.Linq;
-using Hoi4ModdingSupporter.Controls;
 using Hoi4ModdingSupporter.Models;
 using Hoi4ModdingSupporter.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -43,8 +41,8 @@ namespace Hoi4ModdingSupporter.Views {
             await ShowErrorDialogAsync(descriptorResult.Errors.FirstOrDefault()?.Message ?? "Failed to open the selected mod file.");
         }
 
-        private void OnRecentProjectCardTapped(object sender, TappedRoutedEventArgs args) {
-            if (sender is RecentProjectCard { RecentProject: { } project }) {
+        private void OnRecentProjectClicked(object sender, ItemClickEventArgs args) {
+            if (args.ClickedItem is RecentProjectRecord project) {
                 Frame.Navigate(typeof(ProjectWorkspaceView), project);
             }
         }
