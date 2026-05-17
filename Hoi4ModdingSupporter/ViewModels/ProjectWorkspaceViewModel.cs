@@ -285,6 +285,17 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return LoadTextFile(SelectedFile);
         }
 
+        public Result SelectFile(ProjectWorkspaceFile file) {
+            if (file.IsTextFile) {
+                return LoadTextFile(file);
+            }
+
+            SelectedFile = file;
+            UnloadEditor();
+
+            return Result.Ok();
+        }
+
         public void UnloadEditor() {
             SetEditorContent(string.Empty, hasUnsavedChanges: false);
         }

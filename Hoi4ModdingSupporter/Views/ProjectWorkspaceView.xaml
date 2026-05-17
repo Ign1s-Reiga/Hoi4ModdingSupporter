@@ -83,7 +83,6 @@
             Grid.Row="2"
             IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
             ItemsSource="{x:Bind ViewModel.FilteredEditableFiles, Mode=OneWay}"
-            SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
             SelectionChanged="OnFileSelectionChanged"
           >
             <ListView.ItemTemplate>
@@ -114,14 +113,12 @@
           DisplayMemberPath="DisplayName"
           ItemsSource="{x:Bind ViewModel.AssetGroups, Mode=OneWay}"
           SelectedItem="{x:Bind ViewModel.SelectedAssetGroup, Mode=TwoWay}"
-          SelectionChanged="OnAssetGroupSelectionChanged"
         />
 
         <ListView
           Grid.Row="4"
           IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
           ItemsSource="{x:Bind ViewModel.SelectedAssetEntries, Mode=OneWay}"
-          SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
           SelectionChanged="OnFileSelectionChanged"
         >
           <ListView.ItemTemplate>
@@ -151,14 +148,12 @@
           DisplayMemberPath="DisplayName"
           ItemsSource="{x:Bind ViewModel.GameAssetGroups, Mode=OneWay}"
           SelectedItem="{x:Bind ViewModel.SelectedGameAssetGroup, Mode=TwoWay}"
-          SelectionChanged="OnAssetGroupSelectionChanged"
         />
 
         <ListView
           Grid.Row="7"
           IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
           ItemsSource="{x:Bind ViewModel.SelectedGameAssetEntries, Mode=OneWay}"
-          SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
           SelectionChanged="OnFileSelectionChanged"
         >
           <ListView.ItemTemplate>

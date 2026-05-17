@@ -72,16 +72,7 @@ namespace Hoi4ModdingSupporter.Views {
                 return;
             }
 
-            if (file.IsTextFile) {
-                ViewModel.LoadTextFile(file);
-            }
-            else {
-                ViewModel.SelectedFile = file;
-                ViewModel.UnloadEditor();
-            }
-        }
-
-        private void OnAssetGroupSelectionChanged(object sender, SelectionChangedEventArgs args) {
+            ViewModel.SelectFile(file);
         }
     }
 }
