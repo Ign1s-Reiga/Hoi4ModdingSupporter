@@ -185,6 +185,7 @@
       >
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -205,8 +206,79 @@
           />
         </StackPanel>
 
-        <TextBox
+        <Grid
           Grid.Row="1"
+          Padding="0,0,0,12"
+          RowSpacing="8"
+          Visibility="{x:Bind ViewModel.NationalFocusEditorVisibility, Mode=OneWay}"
+        >
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <TextBlock
+            Text="No-Code National Focus Editor"
+            Style="{StaticResource BodyStrongTextBlockStyle}"
+          />
+
+          <ComboBox
+            Grid.Row="1"
+            DisplayMemberPath="DisplayName"
+            HorizontalAlignment="Stretch"
+            ItemsSource="{x:Bind ViewModel.NationalFocuses, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedNationalFocus, Mode=TwoWay}"
+          />
+
+          <Grid Grid.Row="2" ColumnSpacing="8" RowSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2*" />
+              <ColumnDefinition Width="2*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBox
+              Header="ID"
+              Text="{x:Bind ViewModel.NationalFocusId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            />
+            <TextBox
+              Grid.Column="1"
+              Header="Icon"
+              Text="{x:Bind ViewModel.NationalFocusIcon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            />
+            <TextBox
+              Grid.Column="2"
+              Header="X"
+              Text="{x:Bind ViewModel.NationalFocusX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            />
+            <TextBox
+              Grid.Row="1"
+              Header="Y"
+              Text="{x:Bind ViewModel.NationalFocusY, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            />
+            <TextBox
+              Grid.Row="1"
+              Grid.Column="1"
+              Header="Cost"
+              Text="{x:Bind ViewModel.NationalFocusCost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            />
+            <Button
+              Grid.Row="1"
+              Grid.Column="2"
+              VerticalAlignment="Bottom"
+              Content="Save Focus"
+              Command="{x:Bind ViewModel.SaveNationalFocusCommand, Mode=OneWay}"
+            />
+          </Grid>
+        </Grid>
+
+        <TextBox
+          Grid.Row="2"
           AcceptsReturn="True"
           FontFamily="Consolas"
           HorizontalAlignment="Stretch"

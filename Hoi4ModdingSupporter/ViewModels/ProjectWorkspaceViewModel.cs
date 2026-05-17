@@ -14,6 +14,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
     public class ProjectWorkspaceViewModel : ObservableObject {
         private const int MaxProjectFileCount = 5000;
         private const long MaxTextFileSizeBytes = 1024 * 1024;
+        private const string NationalFocusPathPrefix = "common\\national_focus";
 
         private static readonly ModAssetArea[] AssetAreas = [
             new("common", "Common"),
@@ -63,7 +64,13 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private ProjectFileGroup? selectedFileGroup;
         private ModAssetGroup? selectedAssetGroup;
         private ModAssetGroup? selectedGameAssetGroup;
+        private NationalFocusEntry? selectedNationalFocus;
         private string fileSearchText = string.Empty;
+        private string nationalFocusId = string.Empty;
+        private string nationalFocusIcon = string.Empty;
+        private string nationalFocusX = string.Empty;
+        private string nationalFocusY = string.Empty;
+        private string nationalFocusCost = string.Empty;
         private string selectedFileContent = string.Empty;
         private string gameAssetStatusText = string.Empty;
         private string statusMessage = string.Empty;
@@ -85,6 +92,10 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 () => StoreResult(SaveSelectedTextContent()),
                 CanLoadOrSaveSelectedFile
             );
+            SaveNationalFocusCommand = new RelayCommand(
+                () => StoreResult(SaveSelectedNationalFocus()),
+                CanSaveSelectedNationalFocus
+            );
 
             foreach (var scriptGroup in ScriptGroups) {
                 FileGroups.Add(scriptGroup);
@@ -104,6 +115,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
                     OnPropertyChanged(nameof(VisualEditorVisibility));
                     OnPropertyChanged(nameof(ModAssetsVisibility));
                     OnPropertyChanged(nameof(GameAssetsVisibility));
+                    OnPropertyChanged(nameof(NationalFocusEditorVisibility));
                 }
             }
         }
@@ -121,6 +133,51 @@ namespace Hoi4ModdingSupporter.ViewModels {
             : Visibility.Collapsed;
 
         public ObservableCollection<ProjectWorkspaceFile> Files { get; } = [];
+
+        public ObservableCollection<NationalFocusEntry> NationalFocuses { get; } = [];
+
+        public NationalFocusEntry? SelectedNationalFocus {
+            get => selectedNationalFocus;
+            set {
+                if (SetProperty(ref selectedNationalFocus, value)) {
+                    LoadNationalFocusEditor(value);
+                    SaveNationalFocusCommand.NotifyCanExecuteChanged();
+                }
+            }
+        }
+
+        public string NationalFocusId {
+            get => nationalFocusId;
+            set {
+                if (SetProperty(ref nationalFocusId, value)) {
+                    SaveNationalFocusCommand.NotifyCanExecuteChanged();
+                }
+            }
+        }
+
+        public string NationalFocusIcon {
+            get => nationalFocusIcon;
+            set => SetProperty(ref nationalFocusIcon, value);
+        }
+
+        public string NationalFocusX {
+            get => nationalFocusX;
+            set => SetProperty(ref nationalFocusX, value);
+        }
+
+        public string NationalFocusY {
+            get => nationalFocusY;
+            set => SetProperty(ref nationalFocusY, value);
+        }
+
+        public string NationalFocusCost {
+            get => nationalFocusCost;
+            set => SetProperty(ref nationalFocusCost, value);
+        }
+
+        public Visibility NationalFocusEditorVisibility => CurrentSection == WorkspaceSection.VisualEditor
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         public ObservableCollection<ProjectWorkspaceFile> EditableFiles { get; } = [];
 
@@ -257,8 +314,11 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public IRelayCommand SaveSelectedFileCommand { get; }
 
+        public IRelayCommand SaveNationalFocusCommand { get; }
+
         public Result RefreshFiles() {
             Files.Clear();
+            NationalFocuses.Clear();
             EditableFiles.Clear();
             FilteredEditableFiles.Clear();
             AssetGroups.Clear();
@@ -292,6 +352,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 }
 
                 RefreshFilteredEditableFiles();
+                RefreshNationalFocuses();
                 RefreshAssetGroups();
                 RefreshGameAssetGroups();
                 StatusMessage = stoppedAtFileLimit
@@ -379,6 +440,54 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 ReplaceFileEntry(FilteredEditableFiles, previousFile, updatedFile);
                 SelectedFile = updatedFile;
                 HasUnsavedChanges = false;
+
+                return Result.Ok();
+            });
+        }
+
+        public Result SaveSelectedNationalFocus() {
+            if (SelectedNationalFocus is null) {
+                return Result.Fail("No national focus is selected.");
+            }
+
+            if (string.IsNullOrWhiteSpace(NationalFocusId)) {
+                return Result.Fail("National focus id is required.");
+            }
+
+            if (HasUnsavedChanges
+                && SelectedFile is not null
+                && string.Equals(SelectedFile.FullPath, SelectedNationalFocus.SourceFile.FullPath, StringComparison.OrdinalIgnoreCase)) {
+                return Result.Fail("Save or discard raw text changes before saving the no-code focus editor.");
+            }
+
+            return Result.Try(() => {
+                var sourceFile = SelectedNationalFocus.SourceFile;
+                var lines = File.ReadAllLines(sourceFile.FullPath, Encoding.UTF8).ToList();
+                var blockEndLine = Math.Min(SelectedNationalFocus.BlockEndLine, lines.Count - 1);
+
+                blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "id", NationalFocusId, quoteValue: true);
+                blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "icon", NationalFocusIcon, quoteValue: true);
+                blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "x", NationalFocusX, quoteValue: false);
+                blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "y", NationalFocusY, quoteValue: false);
+                SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "cost", NationalFocusCost, quoteValue: false);
+
+                File.WriteAllLines(sourceFile.FullPath, lines, Encoding.UTF8);
+                var updatedSourceFile = ProjectWorkspaceFile.FromFileInfo(Project.FolderPath, new FileInfo(sourceFile.FullPath), true);
+                ReplaceFileEntry(Files, sourceFile, updatedSourceFile);
+                ReplaceFileEntry(EditableFiles, sourceFile, updatedSourceFile);
+                ReplaceFileEntry(FilteredEditableFiles, sourceFile, updatedSourceFile);
+
+                var selectedId = NationalFocusId;
+                RefreshNationalFocuses();
+                SelectedNationalFocus = NationalFocuses.FirstOrDefault(focus =>
+                    string.Equals(focus.SourceFile.FullPath, sourceFile.FullPath, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(focus.Id, selectedId, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (SelectedFile is not null
+                    && string.Equals(SelectedFile.FullPath, sourceFile.FullPath, StringComparison.OrdinalIgnoreCase)) {
+                    LoadTextFile(SelectedFile);
+                }
 
                 return Result.Ok();
             });
@@ -490,6 +599,166 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         private bool CanLoadOrSaveSelectedFile() {
             return SelectedFile?.IsTextFile == true;
+        }
+
+        private bool CanSaveSelectedNationalFocus() {
+            return SelectedNationalFocus is not null && !string.IsNullOrWhiteSpace(NationalFocusId);
+        }
+
+        private void RefreshNationalFocuses() {
+            NationalFocuses.Clear();
+
+            foreach (var file in EditableFiles.Where(IsNationalFocusFile)) {
+                foreach (var focus in ReadNationalFocuses(file)) {
+                    NationalFocuses.Add(focus);
+                }
+            }
+
+            SelectedNationalFocus = NationalFocuses.FirstOrDefault();
+        }
+
+        private static bool IsNationalFocusFile(ProjectWorkspaceFile file) {
+            return file.RelativePath.StartsWith(NationalFocusPathPrefix, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(file.Extension, ".txt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static IEnumerable<NationalFocusEntry> ReadNationalFocuses(ProjectWorkspaceFile file) {
+            string[] lines;
+            try {
+                lines = File.ReadAllLines(file.FullPath, Encoding.UTF8);
+            }
+            catch (IOException) {
+                yield break;
+            }
+            catch (UnauthorizedAccessException) {
+                yield break;
+            }
+
+            for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++) {
+                if (!IsFocusStartLine(lines[lineIndex])) {
+                    continue;
+                }
+
+                var endLine = FindBlockEndLine(lines, lineIndex);
+                if (endLine <= lineIndex) {
+                    continue;
+                }
+
+                yield return new NationalFocusEntry(
+                    file,
+                    lineIndex,
+                    endLine,
+                    ReadAssignment(lines, lineIndex, endLine, "id"),
+                    ReadAssignment(lines, lineIndex, endLine, "icon"),
+                    ReadAssignment(lines, lineIndex, endLine, "x"),
+                    ReadAssignment(lines, lineIndex, endLine, "y"),
+                    ReadAssignment(lines, lineIndex, endLine, "cost")
+                );
+
+                lineIndex = endLine;
+            }
+        }
+
+        private static bool IsFocusStartLine(string line) {
+            var uncommented = RemoveLineComment(line).Trim();
+            var compact = string.Concat(uncommented.Where(character => !char.IsWhiteSpace(character)));
+            return compact.Equals("focus={", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int FindBlockEndLine(string[] lines, int startLine) {
+            var depth = 0;
+            for (var lineIndex = startLine; lineIndex < lines.Length; lineIndex++) {
+                var line = RemoveLineComment(lines[lineIndex]);
+                depth += line.Count(character => character == '{');
+                depth -= line.Count(character => character == '}');
+
+                if (depth <= 0 && lineIndex > startLine) {
+                    return lineIndex;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string ReadAssignment(string[] lines, int startLine, int endLine, string key) {
+            var prefix = key + "=";
+            var spacedPrefix = key + " =";
+            var depth = 1;
+
+            for (var lineIndex = startLine + 1; lineIndex < endLine; lineIndex++) {
+                var uncommented = RemoveLineComment(lines[lineIndex]);
+                var line = uncommented.Trim();
+                if (depth == 1
+                    && (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                        || line.StartsWith(spacedPrefix, StringComparison.OrdinalIgnoreCase))) {
+                    var separatorIndex = line.IndexOf('=');
+                    if (separatorIndex < 0) {
+                        continue;
+                    }
+
+                    return line[(separatorIndex + 1)..].Trim().Trim('"');
+                }
+
+                depth += uncommented.Count(character => character == '{');
+                depth -= uncommented.Count(character => character == '}');
+            }
+
+            return string.Empty;
+        }
+
+        private static int SetFocusAssignment(
+            List<string> lines,
+            int startLine,
+            int endLine,
+            string key,
+            string value,
+            bool quoteValue
+        ) {
+            var replacement = string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : $"{key} = {(quoteValue ? $"\"{value.Trim().Trim('"')}\"" : value.Trim())}";
+            var depth = 1;
+
+            for (var lineIndex = startLine + 1; lineIndex < endLine; lineIndex++) {
+                var uncommented = RemoveLineComment(lines[lineIndex]);
+                var trimmed = uncommented.TrimStart();
+                if (depth == 1
+                    && (trimmed.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)
+                        || trimmed.StartsWith(key + " =", StringComparison.OrdinalIgnoreCase))) {
+                    if (string.IsNullOrEmpty(replacement)) {
+                        lines.RemoveAt(lineIndex);
+                        return endLine - 1;
+                    }
+                    else {
+                        var indentation = lines[lineIndex][..(lines[lineIndex].Length - lines[lineIndex].TrimStart().Length)];
+                        lines[lineIndex] = indentation + replacement;
+                        return endLine;
+                    }
+                }
+
+                depth += uncommented.Count(character => character == '{');
+                depth -= uncommented.Count(character => character == '}');
+            }
+
+            if (!string.IsNullOrEmpty(replacement)) {
+                lines.Insert(endLine, "\t\t" + replacement);
+                return endLine + 1;
+            }
+
+            return endLine;
+        }
+
+        private static string RemoveLineComment(string line) {
+            var commentIndex = line.IndexOf('#');
+            return commentIndex >= 0 ? line[..commentIndex] : line;
+        }
+
+        private void LoadNationalFocusEditor(NationalFocusEntry? focus) {
+            NationalFocusId = focus?.Id ?? string.Empty;
+            NationalFocusIcon = focus?.Icon ?? string.Empty;
+            NationalFocusX = focus?.X ?? string.Empty;
+            NationalFocusY = focus?.Y ?? string.Empty;
+            NationalFocusCost = focus?.Cost ?? string.Empty;
         }
 
         private void RefreshFilteredEditableFiles() {
