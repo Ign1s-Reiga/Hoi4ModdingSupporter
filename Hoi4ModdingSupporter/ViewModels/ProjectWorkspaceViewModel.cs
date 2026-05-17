@@ -45,8 +45,23 @@ namespace Hoi4ModdingSupporter.ViewModels {
             ".yaml"
         };
 
+        private static readonly ProjectFileGroup[] ScriptGroups = [
+            new("All Editable Text", []),
+            new("National Focuses", [NormalizeRelativePath("common/national_focus")]),
+            new("Events", [NormalizeRelativePath("events")]),
+            new("History", [NormalizeRelativePath("history")]),
+            new("Ideologies", [NormalizeRelativePath("common/ideologies")]),
+            new("Decisions", [NormalizeRelativePath("common/decisions")]),
+            new("Scripted Effects", [NormalizeRelativePath("common/scripted_effects")]),
+            new("Scripted Triggers", [NormalizeRelativePath("common/scripted_triggers")]),
+            new("Localisation", [NormalizeRelativePath("localisation")]),
+            new("Interface", [NormalizeRelativePath("interface")])
+        ];
+
         private ProjectWorkspaceFile? selectedFile;
+        private ProjectFileGroup? selectedFileGroup;
         private ModAssetGroup? selectedAssetGroup;
+        private string fileSearchText = string.Empty;
         private string selectedFileContent = string.Empty;
         private string statusMessage = string.Empty;
         private bool hasUnsavedChanges;
@@ -56,7 +71,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
             RefreshFilesCommand = new RelayCommand(() => {
                 RefreshFiles();
-            });
+            }, () => CanChangeWorkspaceSelection);
             LoadSelectedFileCommand = new RelayCommand(
                 () => StoreResult(LoadSelectedTextFile()),
                 CanLoadOrSaveSelectedFile
@@ -66,6 +81,12 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 CanLoadOrSaveSelectedFile
             );
 
+            foreach (var scriptGroup in ScriptGroups) {
+                FileGroups.Add(scriptGroup);
+            }
+
+            selectedFileGroup = FileGroups.FirstOrDefault();
+
             RefreshFiles();
         }
 
@@ -74,6 +95,28 @@ namespace Hoi4ModdingSupporter.ViewModels {
         public ObservableCollection<ProjectWorkspaceFile> Files { get; } = [];
 
         public ObservableCollection<ProjectWorkspaceFile> EditableFiles { get; } = [];
+
+        public ObservableCollection<ProjectWorkspaceFile> FilteredEditableFiles { get; } = [];
+
+        public ObservableCollection<ProjectFileGroup> FileGroups { get; } = [];
+
+        public ProjectFileGroup? SelectedFileGroup {
+            get => selectedFileGroup;
+            set {
+                if (SetProperty(ref selectedFileGroup, value)) {
+                    RefreshFilteredEditableFiles();
+                }
+            }
+        }
+
+        public string FileSearchText {
+            get => fileSearchText;
+            set {
+                if (SetProperty(ref fileSearchText, value)) {
+                    RefreshFilteredEditableFiles();
+                }
+            }
+        }
 
         public ObservableCollection<ModAssetGroup> AssetGroups { get; } = [];
 
@@ -94,6 +137,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 if (SetProperty(ref selectedFile, value)) {
                     LoadSelectedFileCommand.NotifyCanExecuteChanged();
                     SaveSelectedFileCommand.NotifyCanExecuteChanged();
+                    OnPropertyChanged(nameof(SelectedFileStatusText));
 
                     if (value?.IsTextFile == false) {
                         UnloadEditor();
@@ -118,7 +162,29 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public bool HasUnsavedChanges {
             get => hasUnsavedChanges;
-            private set => SetProperty(ref hasUnsavedChanges, value);
+            private set {
+                if (SetProperty(ref hasUnsavedChanges, value)) {
+                    RefreshFilesCommand.NotifyCanExecuteChanged();
+                    OnPropertyChanged(nameof(CanChangeWorkspaceSelection));
+                    OnPropertyChanged(nameof(SelectedFileStatusText));
+                }
+            }
+        }
+
+        public bool CanChangeWorkspaceSelection => !HasUnsavedChanges;
+
+        public string SelectedFileStatusText {
+            get {
+                if (SelectedFile is null) {
+                    return $"{FilteredEditableFiles.Count:N0} scripts";
+                }
+
+                if (HasUnsavedChanges) {
+                    return "Unsaved changes";
+                }
+
+                return $"{SelectedFile.SizeBytes:N0} bytes";
+            }
         }
 
         public IRelayCommand RefreshFilesCommand { get; }
@@ -130,6 +196,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
         public Result RefreshFiles() {
             Files.Clear();
             EditableFiles.Clear();
+            FilteredEditableFiles.Clear();
             AssetGroups.Clear();
             SelectedAssetGroup = null;
             SelectedFile = null;
@@ -158,6 +225,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
                     }
                 }
 
+                RefreshFilteredEditableFiles();
                 RefreshAssetGroups();
                 StatusMessage = stoppedAtFileLimit
                     ? $"Stopped after loading {MaxProjectFileCount:N0} files."
@@ -214,8 +282,13 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return Result.Try(() => {
                 File.WriteAllText(SelectedFile.FullPath, SelectedFileContent, Encoding.UTF8);
 
+                var previousFile = SelectedFile;
                 var fileInfo = new FileInfo(SelectedFile.FullPath);
-                SelectedFile = ProjectWorkspaceFile.FromFileInfo(Project.FolderPath, fileInfo, true);
+                var updatedFile = ProjectWorkspaceFile.FromFileInfo(Project.FolderPath, fileInfo, true);
+                ReplaceFileEntry(Files, previousFile, updatedFile);
+                ReplaceFileEntry(EditableFiles, previousFile, updatedFile);
+                ReplaceFileEntry(FilteredEditableFiles, previousFile, updatedFile);
+                SelectedFile = updatedFile;
                 HasUnsavedChanges = false;
 
                 return Result.Ok();
@@ -330,6 +403,42 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return SelectedFile?.IsTextFile == true;
         }
 
+        private void RefreshFilteredEditableFiles() {
+            FilteredEditableFiles.Clear();
+
+            var filteredFiles = EditableFiles.AsEnumerable();
+            if (SelectedFileGroup is not null) {
+                filteredFiles = filteredFiles.Where(SelectedFileGroup.Includes);
+            }
+
+            if (!string.IsNullOrWhiteSpace(FileSearchText)) {
+                filteredFiles = filteredFiles.Where(file =>
+                    file.RelativePath.Contains(FileSearchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            foreach (var file in filteredFiles) {
+                FilteredEditableFiles.Add(file);
+            }
+
+            if (SelectedFile?.IsTextFile == true && !FilteredEditableFiles.Contains(SelectedFile)) {
+                SelectedFile = null;
+                UnloadEditor();
+            }
+
+            OnPropertyChanged(nameof(SelectedFileStatusText));
+        }
+
+        private static void ReplaceFileEntry(
+            ObservableCollection<ProjectWorkspaceFile> files,
+            ProjectWorkspaceFile previousFile,
+            ProjectWorkspaceFile updatedFile
+        ) {
+            var index = files.IndexOf(previousFile);
+            if (index >= 0) {
+                files[index] = updatedFile;
+            }
+        }
+
         private void RefreshAssetGroups() {
             foreach (var assetArea in AssetAreas) {
                 var entries = new ObservableCollection<ProjectWorkspaceFile>();
@@ -351,6 +460,10 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 .FirstOrDefault();
 
             return string.Equals(firstSegment, areaName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeRelativePath(string relativePath) {
+            return relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
         }
 
         private void SetEditorContent(string content, bool hasUnsavedChanges) {

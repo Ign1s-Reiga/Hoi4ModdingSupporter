@@ -1,6 +1,8 @@
 using System;
+using System.Threading.Tasks;
 using Hoi4ModdingSupporter.Models;
 using Hoi4ModdingSupporter.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -44,6 +46,34 @@ namespace Hoi4ModdingSupporter.Views {
             );
         }
 
+        public async Task<bool> ConfirmNavigationAwayAsync() {
+            if (!ViewModel.HasUnsavedChanges) {
+                return true;
+            }
+
+            var dialog = new ContentDialog {
+                Title = "Unsaved Changes",
+                Content = "Save changes before leaving this workspace?",
+                PrimaryButtonText = "Save",
+                SecondaryButtonText = "Discard",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Secondary) {
+                return true;
+            }
+
+            if (result != ContentDialogResult.Primary) {
+                return false;
+            }
+
+            ViewModel.SaveSelectedFileCommand.Execute(null);
+            return !ViewModel.HasUnsavedChanges;
+        }
+
         private void OnFileSelectionChanged(object sender, SelectionChangedEventArgs args) {
             if (ViewModel.SelectedFile?.IsTextFile == true) {
                 ViewModel.LoadSelectedFileCommand.Execute(null);
@@ -60,7 +90,11 @@ namespace Hoi4ModdingSupporter.Views {
         }
 
         private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) {
-            if (args.PropertyName is nameof(ViewModel.SelectedFile) or nameof(ViewModel.SelectedAssetGroup) or nameof(ViewModel.StatusMessage)) {
+            if (args.PropertyName is nameof(ViewModel.SelectedFile)
+                or nameof(ViewModel.SelectedFileStatusText)
+                or nameof(ViewModel.CanChangeWorkspaceSelection)
+                or nameof(ViewModel.SelectedAssetGroup)
+                or nameof(ViewModel.StatusMessage)) {
                 Bindings.Update();
             }
         }

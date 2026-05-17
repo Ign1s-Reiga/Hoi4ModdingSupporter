@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Hoi4ModdingSupporter.Models;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -38,11 +39,13 @@ namespace Hoi4ModdingSupporter.Views {
             navView.IsPaneOpen = !navView.IsPaneOpen;
         }
 
-        private void OnBackRequested(TitleBar sender, object args) {
-            navFrame.GoBack();
+        private async void OnBackRequested(TitleBar sender, object args) {
+            if (navFrame.CanGoBack && await ConfirmCurrentPageCanNavigateAsync()) {
+                navFrame.GoBack();
+            }
         }
 
-        private void OnSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args) {
+        private async void OnSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args) {
             var pageType = args.IsSettingsSelected
                 ? typeof(SettingsView)
                 : args.SelectedItemContainer?.Tag switch {
@@ -51,8 +54,17 @@ namespace Hoi4ModdingSupporter.Views {
                 };
 
             if (pageType is not null && navFrame.CurrentSourcePageType != pageType) {
+                if (!await ConfirmCurrentPageCanNavigateAsync()) {
+                    return;
+                }
+
                 navFrame.Navigate(pageType);
             }
+        }
+
+        private async Task<bool> ConfirmCurrentPageCanNavigateAsync() {
+            return navFrame.Content is not ProjectWorkspaceView workspace
+                || await workspace.ConfirmNavigationAwayAsync();
         }
     }
 }
