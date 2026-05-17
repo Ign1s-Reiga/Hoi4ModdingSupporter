@@ -8,16 +8,59 @@
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   mc:Ignorable="d"
 >
-  <StackPanel
-    MinHeight="200"
+  <Border
+    Width="280"
+    Height="200"
+    Margin="0,0,12,0"
+    Padding="12"
+    Background="{StaticResource CardBackgroundFillColorDefaultBrush}"
+    BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+    BorderThickness="1"
     CornerRadius="{StaticResource OverlayCornerRadius}"
   >
-    
-    <Image
-      Source="{
-        x:Bind RecentProject.ImagePath,
-        TargetNullValue={StaticResource }
-      }"
-    />
-  </StackPanel>
+    <Grid RowSpacing="10">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="96" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid
+        Background="{StaticResource LayerFillColorDefaultBrush}"
+        CornerRadius="6"
+      >
+        <Image
+          Source="{x:Bind ProjectImageSource, Mode=OneWay}"
+          Stretch="UniformToFill"
+          Visibility="{x:Bind ProjectImageVisibility, Mode=OneWay}"
+        />
+        <FontIcon
+          Glyph="&#xE8B7;"
+          FontSize="28"
+          Foreground="{StaticResource TextFillColorSecondaryBrush}"
+          Visibility="{x:Bind FallbackIconVisibility, Mode=OneWay}"
+        />
+      </Grid>
+
+      <TextBlock
+        Grid.Row="1"
+        Text="{x:Bind DisplayName, Mode=OneWay}"
+        Style="{StaticResource BodyStrongTextBlockStyle}"
+        TextTrimming="CharacterEllipsis"
+      />
+      <TextBlock
+        Grid.Row="2"
+        Text="{x:Bind FolderPath, Mode=OneWay}"
+        Foreground="{StaticResource TextFillColorSecondaryBrush}"
+        TextTrimming="CharacterEllipsis"
+      />
+      <TextBlock
+        Grid.Row="3"
+        Text="{x:Bind LastAccessedText, Mode=OneWay}"
+        VerticalAlignment="Bottom"
+        Foreground="{StaticResource TextFillColorTertiaryBrush}"
+      />
+    </Grid>
+  </Border>
 </UserControl>

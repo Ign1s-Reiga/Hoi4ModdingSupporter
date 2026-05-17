@@ -9,6 +9,7 @@
   xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
   xmlns:ui="using:CommunityToolkit.WinUI"
   xmlns:controls="using:Hoi4ModdingSupporter.Controls"
+  xmlns:models="using:Hoi4ModdingSupporter.Models"
   mc:Ignorable="d"
 >
   <StackPanel Margin="36">
@@ -22,8 +23,15 @@
       TitleText="Recent Projects"
       TextStyle="{StaticResource SubtitleTextBlockStyle}"
     />
-    <ItemsView Height="240">
-      
+    <ItemsView
+      Height="240"
+      ItemsSource="{x:Bind ViewModel.RecentProjects, Mode=OneWay}"
+    >
+      <ItemsView.ItemTemplate>
+        <DataTemplate x:DataType="models:RecentProjectRecord">
+          <controls:RecentProjectCard RecentProject="{Binding}" />
+        </DataTemplate>
+      </ItemsView.ItemTemplate>
     </ItemsView>
     <controls:HeaderText
       Margin="0,24,0,12"
