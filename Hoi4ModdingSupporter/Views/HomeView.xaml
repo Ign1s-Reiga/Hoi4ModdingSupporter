@@ -48,6 +48,7 @@
         IsClickEnabled="True"
         HeaderIcon="{ui:FontIcon Glyph=&#xE838;}"
         Header="Open Project"
+        Click="OnOpenProjectClicked"
       />
     </StackPanel>
   </StackPanel>

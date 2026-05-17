@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 namespace Hoi4ModdingSupporter {
     public partial class App : Application {
         private Window? window;
+        public static Window? MainWindow { get; private set; }
 
         public App() {
             InitializeComponent();
@@ -22,6 +23,7 @@ namespace Hoi4ModdingSupporter {
 
         protected override void OnLaunched(LaunchActivatedEventArgs args) {
             window = new MainWindow();
+            MainWindow = window;
             window.Activate();
         }
     }
