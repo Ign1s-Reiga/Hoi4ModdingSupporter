@@ -15,6 +15,7 @@ namespace Hoi4ModdingSupporter.Models {
     public record SettingsRecord(
         int Version,
         int AppTheme,
+        string GameRootPath,
         RecentProjectRecord[] RecentProjects
     );
 

@@ -11,6 +11,7 @@ namespace Hoi4ModdingSupporter.Models {
         public SettingsRecord CurrentSettings { get; set; } = new SettingsRecord(
             Version: 1,
             AppTheme: 2,
+            GameRootPath: string.Empty,
             RecentProjects: []
         );
 
@@ -34,7 +35,11 @@ namespace Hoi4ModdingSupporter.Models {
             return Result.Try(() => {
                 var json = File.ReadAllText(settingsFilePath);
 
-                CurrentSettings = JsonSerializer.Deserialize(json, SettingsSourceContext.Default.SettingsRecord) ?? CurrentSettings;
+                var settings = JsonSerializer.Deserialize(json, SettingsSourceContext.Default.SettingsRecord) ?? CurrentSettings;
+                CurrentSettings = settings with {
+                    GameRootPath = settings.GameRootPath ?? string.Empty,
+                    RecentProjects = settings.RecentProjects ?? []
+                };
                 return Result.Ok();
             });
         }

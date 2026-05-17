@@ -41,12 +41,15 @@
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock
             VerticalAlignment="Center"
-            Text="Script Editor"
+            Text="Visual Mod Editor"
             Style="{StaticResource BodyStrongTextBlockStyle}"
           />
           <Button
@@ -136,6 +139,43 @@
             </DataTemplate>
           </ListView.ItemTemplate>
         </ListView>
+
+        <TextBlock
+          Grid.Row="5"
+          Text="Game Assets"
+          Style="{StaticResource BodyStrongTextBlockStyle}"
+        />
+
+        <ComboBox
+          Grid.Row="6"
+          DisplayMemberPath="DisplayName"
+          ItemsSource="{x:Bind ViewModel.GameAssetGroups, Mode=OneWay}"
+          SelectedItem="{x:Bind ViewModel.SelectedGameAssetGroup, Mode=TwoWay}"
+          SelectionChanged="OnAssetGroupSelectionChanged"
+        />
+
+        <ListView
+          Grid.Row="7"
+          IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
+          ItemsSource="{x:Bind ViewModel.SelectedGameAssetEntries, Mode=OneWay}"
+          SelectedItem="{x:Bind ViewModel.SelectedFile, Mode=TwoWay}"
+          SelectionChanged="OnFileSelectionChanged"
+        >
+          <ListView.ItemTemplate>
+            <DataTemplate x:DataType="models:ProjectWorkspaceFile">
+              <StackPanel Padding="0,4">
+                <TextBlock
+                  Text="{x:Bind RelativePath}"
+                  TextTrimming="CharacterEllipsis"
+                />
+                <TextBlock
+                  Text="{x:Bind Extension}"
+                  Foreground="{StaticResource TextFillColorTertiaryBrush}"
+                />
+              </StackPanel>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
       </Grid>
 
       <Grid Grid.Column="1" RowSpacing="12">
@@ -178,7 +218,7 @@
 
     <TextBlock
       Grid.Row="2"
-      Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+      Text="{x:Bind ViewModel.WorkspaceStatusText, Mode=OneWay}"
       Foreground="{StaticResource TextFillColorSecondaryBrush}"
       TextTrimming="CharacterEllipsis"
     />

@@ -61,8 +61,10 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private ProjectWorkspaceFile? selectedFile;
         private ProjectFileGroup? selectedFileGroup;
         private ModAssetGroup? selectedAssetGroup;
+        private ModAssetGroup? selectedGameAssetGroup;
         private string fileSearchText = string.Empty;
         private string selectedFileContent = string.Empty;
+        private string gameAssetStatusText = string.Empty;
         private string statusMessage = string.Empty;
         private bool hasUnsavedChanges;
         private bool isSettingEditorContent;
@@ -121,6 +123,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public ObservableCollection<ModAssetGroup> AssetGroups { get; } = [];
 
+        public ObservableCollection<ModAssetGroup> GameAssetGroups { get; } = [];
+
         public ModAssetGroup? SelectedAssetGroup {
             get => selectedAssetGroup;
             set {
@@ -131,6 +135,17 @@ namespace Hoi4ModdingSupporter.ViewModels {
         }
 
         public ObservableCollection<ProjectWorkspaceFile> SelectedAssetEntries => SelectedAssetGroup?.Entries ?? [];
+
+        public ModAssetGroup? SelectedGameAssetGroup {
+            get => selectedGameAssetGroup;
+            set {
+                if (SetProperty(ref selectedGameAssetGroup, value)) {
+                    OnPropertyChanged(nameof(SelectedGameAssetEntries));
+                }
+            }
+        }
+
+        public ObservableCollection<ProjectWorkspaceFile> SelectedGameAssetEntries => SelectedGameAssetGroup?.Entries ?? [];
 
         public ProjectWorkspaceFile? SelectedFile {
             get => selectedFile;
@@ -160,8 +175,25 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public string StatusMessage {
             get => statusMessage;
-            private set => SetProperty(ref statusMessage, value);
+            private set {
+                if (SetProperty(ref statusMessage, value)) {
+                    OnPropertyChanged(nameof(WorkspaceStatusText));
+                }
+            }
         }
+
+        public string GameAssetStatusText {
+            get => gameAssetStatusText;
+            private set {
+                if (SetProperty(ref gameAssetStatusText, value)) {
+                    OnPropertyChanged(nameof(WorkspaceStatusText));
+                }
+            }
+        }
+
+        public string WorkspaceStatusText => string.IsNullOrWhiteSpace(StatusMessage)
+            ? GameAssetStatusText
+            : StatusMessage;
 
         public bool HasUnsavedChanges {
             get => hasUnsavedChanges;
@@ -205,7 +237,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
             EditableFiles.Clear();
             FilteredEditableFiles.Clear();
             AssetGroups.Clear();
+            GameAssetGroups.Clear();
             SelectedAssetGroup = null;
+            SelectedGameAssetGroup = null;
             SelectedFile = null;
             SelectedFileContent = string.Empty;
             HasUnsavedChanges = false;
@@ -234,6 +268,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
                 RefreshFilteredEditableFiles();
                 RefreshAssetGroups();
+                RefreshGameAssetGroups();
                 StatusMessage = stoppedAtFileLimit
                     ? $"Stopped after loading {MaxProjectFileCount:N0} files."
                     : string.Empty;
@@ -461,12 +496,82 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 ?? AssetGroups.FirstOrDefault();
         }
 
+        private void RefreshGameAssetGroups() {
+            GameAssetStatusText = string.Empty;
+
+            var gameRootPath = SettingsRepository.Instance.CurrentSettings.GameRootPath;
+            if (string.IsNullOrWhiteSpace(gameRootPath)) {
+                AddEmptyGameAssetGroups();
+                GameAssetStatusText = "Set the Hearts of Iron IV folder in Settings to browse original assets.";
+                return;
+            }
+
+            if (!Directory.Exists(gameRootPath)) {
+                AddEmptyGameAssetGroups();
+                GameAssetStatusText = $"Game folder does not exist: {gameRootPath}";
+                return;
+            }
+
+            var entriesByArea = AssetAreas.ToDictionary(
+                assetArea => assetArea.DirectoryName,
+                _ => new ObservableCollection<ProjectWorkspaceFile>(),
+                StringComparer.OrdinalIgnoreCase
+            );
+            var loadedAssetCount = 0;
+
+            foreach (var file in EnumerateProjectFiles(gameRootPath)) {
+                if (loadedAssetCount >= MaxProjectFileCount) {
+                    break;
+                }
+
+                if (file.IsTextFile || TryGetAssetAreaName(file) is not string areaName) {
+                    continue;
+                }
+
+                if (entriesByArea.TryGetValue(areaName, out var entries)) {
+                    entries.Add(file);
+                    loadedAssetCount++;
+                }
+            }
+
+            foreach (var assetArea in AssetAreas) {
+                GameAssetGroups.Add(new ModAssetGroup(
+                    assetArea.DirectoryName,
+                    assetArea.DisplayName,
+                    entriesByArea[assetArea.DirectoryName]
+                ));
+            }
+
+            if (loadedAssetCount >= MaxProjectFileCount) {
+                GameAssetStatusText = $"Stopped after loading {MaxProjectFileCount:N0} game assets.";
+            }
+
+            SelectedGameAssetGroup = GameAssetGroups.FirstOrDefault(group => group.Entries.Count > 0)
+                ?? GameAssetGroups.FirstOrDefault();
+        }
+
+        private void AddEmptyGameAssetGroups() {
+            foreach (var assetArea in AssetAreas) {
+                GameAssetGroups.Add(new ModAssetGroup(
+                    assetArea.DirectoryName,
+                    assetArea.DisplayName,
+                    []
+                ));
+            }
+
+            SelectedGameAssetGroup = GameAssetGroups.FirstOrDefault();
+        }
+
         private static bool IsAssetAreaFile(ProjectWorkspaceFile file, string areaName) {
+            return string.Equals(TryGetAssetAreaName(file), areaName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? TryGetAssetAreaName(ProjectWorkspaceFile file) {
             var firstSegment = file.RelativePath
                 .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault();
 
-            return string.Equals(firstSegment, areaName, StringComparison.OrdinalIgnoreCase);
+            return firstSegment;
         }
 
         private static string NormalizeRelativePath(string relativePath) {

@@ -36,6 +36,23 @@
     </StackPanel>
     <controls:HeaderText
       Margin="0,0,0,12"
+      TitleText="Game"
+      TextStyle="{StaticResource BodyStrongTextBlockStyle}"
+    />
+    <StackPanel Spacing="4" Margin="0,0,0,36">
+      <toolkit:SettingsCard
+        Header="Hearts of Iron IV Folder"
+        Description="{x:Bind ViewModel.GameRootPathDisplay, Mode=OneWay}"
+        HeaderIcon="{ui:FontIcon Glyph=&#xE8B7;}"
+      >
+        <Button
+          Content="Browse"
+          Click="OnBrowseGameRootClicked"
+        />
+      </toolkit:SettingsCard>
+    </StackPanel>
+    <controls:HeaderText
+      Margin="0,0,0,12"
       TitleText="About"
       TextStyle="{StaticResource BodyStrongTextBlockStyle}"
     />
