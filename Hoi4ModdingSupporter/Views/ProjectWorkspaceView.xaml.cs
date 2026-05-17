@@ -1,8 +1,8 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Hoi4ModdingSupporter.Models;
 using Hoi4ModdingSupporter.ViewModels;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -17,23 +17,16 @@ namespace Hoi4ModdingSupporter.Views {
             )
         );
 
-        public string SelectedFileTitle => ViewModel.SelectedFile?.RelativePath ?? "Select a text file";
-
-        public bool IsEditorReadOnly => ViewModel.SelectedFile?.IsTextFile != true;
-
         public ProjectWorkspaceView() {
             InitializeComponent();
-            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e) {
-            ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             ViewModel = e.Parameter switch {
                 ModDescriptor descriptor => new ProjectWorkspaceViewModel(ToRecentProject(descriptor)),
                 RecentProjectRecord recentProject => new ProjectWorkspaceViewModel(recentProject),
                 _ => ViewModel
             };
-            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             Bindings.Update();
         }
 
@@ -75,28 +68,20 @@ namespace Hoi4ModdingSupporter.Views {
         }
 
         private void OnFileSelectionChanged(object sender, SelectionChangedEventArgs args) {
-            if (ViewModel.SelectedFile?.IsTextFile == true) {
-                ViewModel.LoadSelectedFileCommand.Execute(null);
-            }
-            else {
-                ViewModel.UnloadEditor();
+            if (args.AddedItems.FirstOrDefault() is not ProjectWorkspaceFile file) {
+                return;
             }
 
-            Bindings.Update();
+            if (file.IsTextFile) {
+                ViewModel.LoadTextFile(file);
+            }
+            else {
+                ViewModel.SelectedFile = file;
+                ViewModel.UnloadEditor();
+            }
         }
 
         private void OnAssetGroupSelectionChanged(object sender, SelectionChangedEventArgs args) {
-            Bindings.Update();
-        }
-
-        private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) {
-            if (args.PropertyName is nameof(ViewModel.SelectedFile)
-                or nameof(ViewModel.SelectedFileStatusText)
-                or nameof(ViewModel.CanChangeWorkspaceSelection)
-                or nameof(ViewModel.SelectedAssetGroup)
-                or nameof(ViewModel.StatusMessage)) {
-                Bindings.Update();
-            }
         }
     }
 }

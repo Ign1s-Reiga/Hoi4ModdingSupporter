@@ -65,6 +65,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private string selectedFileContent = string.Empty;
         private string statusMessage = string.Empty;
         private bool hasUnsavedChanges;
+        private bool isSettingEditorContent;
 
         public ProjectWorkspaceViewModel(RecentProjectRecord project) {
             Project = project;
@@ -137,6 +138,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 if (SetProperty(ref selectedFile, value)) {
                     LoadSelectedFileCommand.NotifyCanExecuteChanged();
                     SaveSelectedFileCommand.NotifyCanExecuteChanged();
+                    OnPropertyChanged(nameof(SelectedFileTitle));
+                    OnPropertyChanged(nameof(IsEditorReadOnly));
                     OnPropertyChanged(nameof(SelectedFileStatusText));
 
                     if (value?.IsTextFile == false) {
@@ -149,7 +152,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
         public string SelectedFileContent {
             get => selectedFileContent;
             set {
-                if (SetProperty(ref selectedFileContent, value)) {
+                if (SetProperty(ref selectedFileContent, value) && !isSettingEditorContent) {
                     HasUnsavedChanges = SelectedFile is not null;
                 }
             }
@@ -172,6 +175,10 @@ namespace Hoi4ModdingSupporter.ViewModels {
         }
 
         public bool CanChangeWorkspaceSelection => !HasUnsavedChanges;
+
+        public string SelectedFileTitle => SelectedFile?.RelativePath ?? "Select a text file";
+
+        public bool IsEditorReadOnly => SelectedFile?.IsTextFile != true;
 
         public string SelectedFileStatusText {
             get {
@@ -467,8 +474,14 @@ namespace Hoi4ModdingSupporter.ViewModels {
         }
 
         private void SetEditorContent(string content, bool hasUnsavedChanges) {
-            SetProperty(ref selectedFileContent, content, nameof(SelectedFileContent));
-            HasUnsavedChanges = hasUnsavedChanges;
+            isSettingEditorContent = true;
+            try {
+                SetProperty(ref selectedFileContent, content, nameof(SelectedFileContent));
+                HasUnsavedChanges = hasUnsavedChanges;
+            }
+            finally {
+                isSettingEditorContent = false;
+            }
         }
 
         private Result StoreResult(Result result) {
