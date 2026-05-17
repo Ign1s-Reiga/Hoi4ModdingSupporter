@@ -33,6 +33,7 @@
         <Image
           Source="{x:Bind ProjectImageSource, Mode=OneWay}"
           Stretch="UniformToFill"
+          ImageFailed="OnProjectImageFailed"
           Visibility="{x:Bind ProjectImageVisibility, Mode=OneWay}"
         />
         <FontIcon

@@ -34,6 +34,10 @@ namespace Hoi4ModdingSupporter.Models {
                 values.TryGetValue("picture", out var picturePath);
 
                 var projectFolderPath = ResolveProjectFolderPath(descriptorDirectoryPath, projectPath);
+                if (!Directory.Exists(projectFolderPath)) {
+                    throw new DirectoryNotFoundException($"Project folder does not exist: {projectFolderPath}");
+                }
+
                 var imagePath = ResolveImagePath(projectFolderPath, descriptorDirectoryPath, picturePath);
 
                 return new ModDescriptor(

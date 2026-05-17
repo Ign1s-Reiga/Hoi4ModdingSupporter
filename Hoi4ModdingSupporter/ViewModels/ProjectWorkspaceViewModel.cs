@@ -11,6 +11,7 @@ using Hoi4ModdingSupporter.Models;
 
 namespace Hoi4ModdingSupporter.ViewModels {
     public class ProjectWorkspaceViewModel : ObservableObject {
+        private const int MaxProjectFileCount = 5000;
         private const long MaxTextFileSizeBytes = 1024 * 1024;
 
         private static readonly HashSet<string> ExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase) {
@@ -113,13 +114,23 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 return StoreResult(Result.Fail($"Project folder does not exist: {Project.FolderPath}"));
             }
 
-            return StoreResult(Result.Try(() => {
+            return Result.Try(() => {
+                var stoppedAtLimit = false;
                 foreach (var file in EnumerateProjectFiles(Project.FolderPath)) {
+                    if (Files.Count >= MaxProjectFileCount) {
+                        stoppedAtLimit = true;
+                        break;
+                    }
+
                     Files.Add(file);
                 }
 
+                StatusMessage = stoppedAtLimit
+                    ? $"Stopped after loading {MaxProjectFileCount:N0} files."
+                    : string.Empty;
+
                 return Result.Ok();
-            }));
+            });
         }
 
         public Result LoadSelectedTextFile() {
@@ -192,17 +203,21 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 }
 
                 foreach (var filePath in EnumerateFiles(directoryPath)) {
-                    var fileInfo = new FileInfo(filePath);
-                    var isTextFile = IsSupportedTextFile(fileInfo);
-
-                    yield return ProjectWorkspaceFile.FromFileInfo(projectFolderPath, fileInfo, isTextFile);
+                    var file = TryCreateWorkspaceFile(projectFolderPath, filePath);
+                    if (file is not null) {
+                        yield return file;
+                    }
                 }
             }
         }
 
         private static IEnumerable<string> EnumerateDirectories(string directoryPath) {
             try {
-                return Directory.EnumerateDirectories(directoryPath).OrderBy(path => path);
+                return Directory
+                    .EnumerateDirectories(directoryPath)
+                    .Where(IsSafeDirectory)
+                    .OrderBy(path => path)
+                    .ToArray();
             }
             catch (IOException) {
                 return [];
@@ -214,13 +229,42 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         private static IEnumerable<string> EnumerateFiles(string directoryPath) {
             try {
-                return Directory.EnumerateFiles(directoryPath).OrderBy(path => path);
+                return Directory.EnumerateFiles(directoryPath).OrderBy(path => path).ToArray();
             }
             catch (IOException) {
                 return [];
             }
             catch (UnauthorizedAccessException) {
                 return [];
+            }
+        }
+
+        private static bool IsSafeDirectory(string directoryPath) {
+            try {
+                var attributes = File.GetAttributes(directoryPath);
+                return !attributes.HasFlag(FileAttributes.ReparsePoint)
+                    && !attributes.HasFlag(FileAttributes.System);
+            }
+            catch (IOException) {
+                return false;
+            }
+            catch (UnauthorizedAccessException) {
+                return false;
+            }
+        }
+
+        private static ProjectWorkspaceFile? TryCreateWorkspaceFile(string projectFolderPath, string filePath) {
+            try {
+                var fileInfo = new FileInfo(filePath);
+                var isTextFile = IsSupportedTextFile(fileInfo);
+
+                return ProjectWorkspaceFile.FromFileInfo(projectFolderPath, fileInfo, isTextFile);
+            }
+            catch (IOException) {
+                return null;
+            }
+            catch (UnauthorizedAccessException) {
+                return null;
             }
         }
 

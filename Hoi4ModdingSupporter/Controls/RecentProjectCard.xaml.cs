@@ -8,6 +8,8 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Hoi4ModdingSupporter.Controls {
     public sealed partial class RecentProjectCard : UserControl {
+        private ImageSource? projectImageSource;
+
         public static readonly DependencyProperty RecentProjectProperty = DependencyProperty.Register(
             name: nameof(RecentProject),
             propertyType: typeof(RecentProjectRecord),
@@ -30,17 +32,9 @@ namespace Hoi4ModdingSupporter.Controls {
             ? string.Empty
             : $"Last opened {RecentProject.LastAccessed:g}";
 
-        public ImageSource? ProjectImageSource {
-            get {
-                if (string.IsNullOrWhiteSpace(RecentProject?.ImagePath) || !File.Exists(RecentProject.ImagePath)) {
-                    return null;
-                }
+        public ImageSource? ProjectImageSource => projectImageSource;
 
-                return new BitmapImage(new Uri(RecentProject.ImagePath));
-            }
-        }
-
-        public Visibility ProjectImageVisibility => ProjectImageSource is null
+        public Visibility ProjectImageVisibility => projectImageSource is null
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -54,8 +48,38 @@ namespace Hoi4ModdingSupporter.Controls {
 
         private static void OnRecentProjectChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args) {
             if (dependencyObject is RecentProjectCard card) {
+                card.projectImageSource = CreateProjectImageSource(card.RecentProject?.ImagePath);
                 card.Bindings.Update();
             }
+        }
+
+        private static ImageSource? CreateProjectImageSource(string? imagePath) {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) {
+                return null;
+            }
+
+            try {
+                var fullPath = Path.GetFullPath(imagePath);
+                if (!Uri.TryCreate(fullPath, UriKind.Absolute, out var imageUri)) {
+                    return null;
+                }
+
+                return new BitmapImage(imageUri);
+            }
+            catch (ArgumentException) {
+                return null;
+            }
+            catch (IOException) {
+                return null;
+            }
+            catch (UnauthorizedAccessException) {
+                return null;
+            }
+        }
+
+        private void OnProjectImageFailed(object sender, ExceptionRoutedEventArgs args) {
+            projectImageSource = null;
+            Bindings.Update();
         }
     }
 }
