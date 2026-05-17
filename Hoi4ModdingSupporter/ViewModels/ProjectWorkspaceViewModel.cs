@@ -73,6 +73,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public ObservableCollection<ProjectWorkspaceFile> Files { get; } = [];
 
+        public ObservableCollection<ProjectWorkspaceFile> EditableFiles { get; } = [];
+
         public ObservableCollection<ModAssetGroup> AssetGroups { get; } = [];
 
         public ModAssetGroup? SelectedAssetGroup {
@@ -127,6 +129,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public Result RefreshFiles() {
             Files.Clear();
+            EditableFiles.Clear();
             AssetGroups.Clear();
             SelectedAssetGroup = null;
             SelectedFile = null;
@@ -150,6 +153,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
                     }
 
                     Files.Add(file);
+                    if (file.IsTextFile) {
+                        EditableFiles.Add(file);
+                    }
                 }
 
                 RefreshAssetGroups();
@@ -327,7 +333,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private void RefreshAssetGroups() {
             foreach (var assetArea in AssetAreas) {
                 var entries = new ObservableCollection<ProjectWorkspaceFile>();
-                foreach (var file in Files.Where(file => IsAssetAreaFile(file, assetArea.DirectoryName))) {
+                foreach (var file in Files.Where(file =>
+                    !file.IsTextFile && IsAssetAreaFile(file, assetArea.DirectoryName))) {
                     entries.Add(file);
                 }
 
