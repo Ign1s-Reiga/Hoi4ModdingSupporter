@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/ソリューション項目/">
     <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
     <File Path=".gitignore" />
     <File Path="AGENTS.md" />
     <File Path="LICENSE" />

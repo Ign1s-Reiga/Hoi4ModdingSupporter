@@ -10,6 +10,10 @@ It provides a user-friendly interface to manage and edit project files, making i
 - Load a mod project by `*.mod` file.
 - User-friendly interface to edit project files.
 - Easily to access game assets and mod assets.
+- National Focus Editor
+- Event, History, Ideology Manager
+- Original Flag & NF Icon Importer
+- Script Editor
 - Build as Standalone application, no need to install any dependencies.
 
 ## Code Style
