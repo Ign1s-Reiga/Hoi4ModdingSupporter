@@ -30,17 +30,10 @@
         Background="{StaticResource LayerFillColorDefaultBrush}"
         CornerRadius="6"
       >
-        <Image
-          Source="{x:Bind ProjectImageSource, Mode=OneWay}"
-          Stretch="UniformToFill"
-          ImageFailed="OnProjectImageFailed"
-          Visibility="{x:Bind ProjectImageVisibility, Mode=OneWay}"
-        />
         <FontIcon
           Glyph="&#xE8B7;"
           FontSize="28"
           Foreground="{StaticResource TextFillColorSecondaryBrush}"
-          Visibility="{x:Bind FallbackIconVisibility, Mode=OneWay}"
         />
       </Grid>
 
