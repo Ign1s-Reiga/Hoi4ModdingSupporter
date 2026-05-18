@@ -310,6 +310,7 @@
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -364,8 +365,41 @@
           />
         </Grid>
 
+        <Grid Grid.Row="5" ColumnSpacing="8" RowSpacing="8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <ComboBox
+            Header="Prerequisite"
+            HorizontalAlignment="Stretch"
+            ItemsSource="{x:Bind ViewModel.NationalFocusIdOptions, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.NationalFocusPrerequisite, Mode=TwoWay}"
+          />
+          <ComboBox
+            Grid.Column="1"
+            Header="Mutually Exclusive"
+            HorizontalAlignment="Stretch"
+            ItemsSource="{x:Bind ViewModel.NationalFocusIdOptions, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.NationalFocusMutuallyExclusive, Mode=TwoWay}"
+          />
+          <ComboBox
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Header="Relative Position"
+            HorizontalAlignment="Stretch"
+            ItemsSource="{x:Bind ViewModel.NationalFocusIdOptions, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.NationalFocusRelativePositionId, Mode=TwoWay}"
+          />
+        </Grid>
+
         <TextBox
-          Grid.Row="5"
+          Grid.Row="6"
           AcceptsReturn="True"
           FontFamily="Consolas"
           Header="Effects"
@@ -378,7 +412,7 @@
         />
 
         <Button
-          Grid.Row="6"
+          Grid.Row="7"
           HorizontalAlignment="Right"
           Content="Save Focus"
           Command="{x:Bind ViewModel.SaveNationalFocusCommand, Mode=OneWay}"

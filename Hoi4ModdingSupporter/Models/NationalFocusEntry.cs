@@ -8,6 +8,9 @@ namespace Hoi4ModdingSupporter.Models {
         string X,
         string Y,
         string Cost,
+        string Prerequisite,
+        string MutuallyExclusive,
+        string RelativePositionId,
         string CompletionReward
     ) {
         public string DisplayName => string.IsNullOrWhiteSpace(Id)

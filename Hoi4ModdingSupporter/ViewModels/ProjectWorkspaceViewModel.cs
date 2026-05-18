@@ -72,6 +72,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
         private string nationalFocusX = string.Empty;
         private string nationalFocusY = string.Empty;
         private string nationalFocusCost = string.Empty;
+        private string nationalFocusPrerequisite = string.Empty;
+        private string nationalFocusMutuallyExclusive = string.Empty;
+        private string nationalFocusRelativePositionId = string.Empty;
         private string nationalFocusEffects = string.Empty;
         private string selectedFileContent = string.Empty;
         private string gameAssetStatusText = string.Empty;
@@ -157,6 +160,8 @@ namespace Hoi4ModdingSupporter.ViewModels {
 
         public ObservableCollection<NationalFocusEntry> VisibleNationalFocuses { get; } = [];
 
+        public ObservableCollection<string> NationalFocusIdOptions { get; } = [];
+
         public ProjectWorkspaceFile? SelectedNationalFocusFile {
             get => selectedNationalFocusFile;
             set {
@@ -220,6 +225,33 @@ namespace Hoi4ModdingSupporter.ViewModels {
             get => nationalFocusCost;
             set {
                 if (SetProperty(ref nationalFocusCost, value)) {
+                    MarkNationalFocusEditorChanged();
+                }
+            }
+        }
+
+        public string NationalFocusPrerequisite {
+            get => nationalFocusPrerequisite;
+            set {
+                if (SetProperty(ref nationalFocusPrerequisite, value)) {
+                    MarkNationalFocusEditorChanged();
+                }
+            }
+        }
+
+        public string NationalFocusMutuallyExclusive {
+            get => nationalFocusMutuallyExclusive;
+            set {
+                if (SetProperty(ref nationalFocusMutuallyExclusive, value)) {
+                    MarkNationalFocusEditorChanged();
+                }
+            }
+        }
+
+        public string NationalFocusRelativePositionId {
+            get => nationalFocusRelativePositionId;
+            set {
+                if (SetProperty(ref nationalFocusRelativePositionId, value)) {
                     MarkNationalFocusEditorChanged();
                 }
             }
@@ -378,6 +410,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
             NationalFocusFiles.Clear();
             NationalFocuses.Clear();
             VisibleNationalFocuses.Clear();
+            NationalFocusIdOptions.Clear();
             EditableFiles.Clear();
             FilteredEditableFiles.Clear();
             AssetGroups.Clear();
@@ -550,6 +583,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "x", NationalFocusX, quoteValue: false);
                 blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "y", NationalFocusY, quoteValue: false);
                 blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "cost", NationalFocusCost, quoteValue: false);
+                blockEndLine = SetFocusReferenceBlock(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "prerequisite", NationalFocusPrerequisite);
+                blockEndLine = SetFocusReferenceBlock(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "mutually_exclusive", NationalFocusMutuallyExclusive);
+                blockEndLine = SetFocusAssignment(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "relative_position_id", NationalFocusRelativePositionId, quoteValue: false);
                 SetFocusBlock(lines, SelectedNationalFocus.BlockStartLine, blockEndLine, "completion_reward", NationalFocusEffects);
 
                 File.WriteAllLines(sourceFile.FullPath, lines, Encoding.UTF8);
@@ -694,6 +730,7 @@ namespace Hoi4ModdingSupporter.ViewModels {
             NationalFocuses.Clear();
             NationalFocusFiles.Clear();
             VisibleNationalFocuses.Clear();
+            NationalFocusIdOptions.Clear();
 
             foreach (var file in EditableFiles.Where(IsNationalFocusFile)) {
                 var focuses = ReadNationalFocuses(file).ToArray();
@@ -705,6 +742,15 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 foreach (var focus in focuses) {
                     NationalFocuses.Add(focus);
                 }
+            }
+
+            NationalFocusIdOptions.Add(string.Empty);
+            foreach (var focusId in NationalFocuses
+                .Select(focus => focus.Id)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)) {
+                NationalFocusIdOptions.Add(focusId);
             }
 
             SelectedNationalFocusFile = NationalFocusFiles.FirstOrDefault();
@@ -767,6 +813,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
                     ReadAssignment(lines, lineIndex, endLine, "x"),
                     ReadAssignment(lines, lineIndex, endLine, "y"),
                     ReadAssignment(lines, lineIndex, endLine, "cost"),
+                    ReadFocusReferenceBlock(lines, lineIndex, endLine, "prerequisite"),
+                    ReadFocusReferenceBlock(lines, lineIndex, endLine, "mutually_exclusive"),
+                    ReadAssignment(lines, lineIndex, endLine, "relative_position_id"),
                     ReadBlockContent(lines, lineIndex, endLine, "completion_reward")
                 );
 
@@ -854,6 +903,38 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 : string.Empty;
         }
 
+        private static string ReadFocusReferenceBlock(string[] lines, int startLine, int endLine, string key) {
+            var blockStartLine = FindTopLevelBlockStartLine(lines, startLine, endLine, key);
+            if (blockStartLine < 0) {
+                return string.Empty;
+            }
+
+            var blockEndLine = FindBlockEndLine(lines, blockStartLine);
+            if (blockEndLine < blockStartLine) {
+                return string.Empty;
+            }
+
+            if (blockEndLine == blockStartLine) {
+                return ReadInlineAssignment(ReadInlineBlockContent(lines[blockStartLine]), "focus");
+            }
+
+            return ReadAssignment(lines, blockStartLine, blockEndLine, "focus");
+        }
+
+        private static string ReadInlineAssignment(string content, string key) {
+            var separatorIndex = content.IndexOf('=');
+            if (separatorIndex < 0) {
+                return string.Empty;
+            }
+
+            var propertyName = content[..separatorIndex].Trim();
+            if (!propertyName.Equals(key, StringComparison.OrdinalIgnoreCase)) {
+                return string.Empty;
+            }
+
+            return content[(separatorIndex + 1)..].Trim().Trim('"');
+        }
+
         private static int SetFocusAssignment(
             List<string> lines,
             int startLine,
@@ -937,6 +1018,41 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return endLine + normalizedLines.Length + 2;
         }
 
+        private static int SetFocusReferenceBlock(
+            List<string> lines,
+            int startLine,
+            int endLine,
+            string key,
+            string focusId
+        ) {
+            var blockStartLine = FindTopLevelBlockStartLine(lines.ToArray(), startLine, endLine, key);
+            var normalizedFocusId = focusId.Trim().Trim('"');
+
+            if (blockStartLine >= 0) {
+                var blockEndLine = FindBlockEndLine(lines.ToArray(), blockStartLine);
+                if (blockEndLine < blockStartLine || blockEndLine > endLine) {
+                    return endLine;
+                }
+
+                if (string.IsNullOrWhiteSpace(normalizedFocusId)) {
+                    lines.RemoveRange(blockStartLine, blockEndLine - blockStartLine + 1);
+                    return endLine - (blockEndLine - blockStartLine + 1);
+                }
+
+                var replacement = BuildFocusReferenceBlockLines(lines[blockStartLine], key, normalizedFocusId);
+                lines.RemoveRange(blockStartLine, blockEndLine - blockStartLine + 1);
+                lines.InsertRange(blockStartLine, replacement);
+                return endLine + replacement.Length - (blockEndLine - blockStartLine + 1);
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedFocusId)) {
+                return endLine;
+            }
+
+            lines.InsertRange(endLine, BuildFocusReferenceBlockLines("\t\t" + key + " = {", key, normalizedFocusId));
+            return endLine + 3;
+        }
+
         private static int FindTopLevelBlockStartLine(string[] lines, int startLine, int endLine, string key) {
             var depth = 1;
 
@@ -970,6 +1086,17 @@ namespace Hoi4ModdingSupporter.ViewModels {
             return output.ToArray();
         }
 
+        private static string[] BuildFocusReferenceBlockLines(string existingStartLine, string key, string focusId) {
+            var indentation = existingStartLine[..(existingStartLine.Length - existingStartLine.TrimStart().Length)];
+            var childIndentation = indentation + "\t";
+
+            return [
+                indentation + key + " = {",
+                childIndentation + "focus = " + focusId,
+                indentation + "}"
+            ];
+        }
+
         private static string[] TrimSharedIndentation(string[] lines) {
             var indentationLength = lines
                 .Where(line => !string.IsNullOrWhiteSpace(line))
@@ -995,6 +1122,9 @@ namespace Hoi4ModdingSupporter.ViewModels {
                 NationalFocusX = focus?.X ?? string.Empty;
                 NationalFocusY = focus?.Y ?? string.Empty;
                 NationalFocusCost = focus?.Cost ?? string.Empty;
+                NationalFocusPrerequisite = focus?.Prerequisite ?? string.Empty;
+                NationalFocusMutuallyExclusive = focus?.MutuallyExclusive ?? string.Empty;
+                NationalFocusRelativePositionId = focus?.RelativePositionId ?? string.Empty;
                 NationalFocusEffects = focus?.CompletionReward ?? string.Empty;
                 SetNationalFocusUnsavedChanges(false);
             }
