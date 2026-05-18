@@ -19,6 +19,8 @@ namespace Hoi4ModdingSupporter.Views {
         private void InitializeRecentProjectsView() {
             var recentProjectsView = new ItemsView {
                 HorizontalAlignment = HorizontalAlignment.Left,
+                Height = 240,
+                IsItemInvokedEnabled = true,
                 ItemsSource = ViewModel.RecentProjects,
                 ItemTemplate = (DataTemplate)Resources["RecentProjectTemplate"],
                 Layout = new StackLayout {

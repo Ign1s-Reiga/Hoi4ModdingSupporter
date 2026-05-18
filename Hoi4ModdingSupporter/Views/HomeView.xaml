@@ -17,7 +17,12 @@
       x:Key="RecentProjectTemplate"
       x:DataType="models:RecentProjectRecord"
     >
-      <controls:RecentProjectCard RecentProject="{Binding}" />
+      <ItemContainer
+        Width="292"
+        MinWidth="0"
+      >
+        <controls:RecentProjectCard RecentProject="{Binding}" />
+      </ItemContainer>
     </DataTemplate>
   </Page.Resources>
 
@@ -32,14 +37,11 @@
       TitleText="Recent Projects"
       TextStyle="{StaticResource SubtitleTextBlockStyle}"
     />
-    <ScrollViewer
+    <Grid
+      x:Name="recentProjectsHost"
       Height="240"
       HorizontalAlignment="Left"
-      HorizontalScrollBarVisibility="Auto"
-      VerticalScrollBarVisibility="Disabled"
-    >
-      <Grid x:Name="recentProjectsHost" />
-    </ScrollViewer>
+    />
     <controls:HeaderText
       Margin="0,24,0,12"
       TitleText="Getting Started"
