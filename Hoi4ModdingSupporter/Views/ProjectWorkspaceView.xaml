@@ -32,6 +32,7 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="320" />
         <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="360" />
       </Grid.ColumnDefinitions>
 
       <Grid RowSpacing="12">
@@ -91,6 +92,45 @@
                   />
                   <TextBlock
                     Text="{x:Bind Extension}"
+                    Foreground="{StaticResource TextFillColorTertiaryBrush}"
+                  />
+                </StackPanel>
+              </DataTemplate>
+            </ListView.ItemTemplate>
+          </ListView>
+        </Grid>
+
+        <Grid
+          Grid.Row="1"
+          RowSpacing="8"
+          Visibility="{x:Bind ViewModel.NationalFocusVisibility, Mode=OneWay}"
+        >
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <TextBlock
+            Text="National Focus Files"
+            Style="{StaticResource BodyStrongTextBlockStyle}"
+          />
+
+          <ListView
+            Grid.Row="1"
+            IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
+            ItemsSource="{x:Bind ViewModel.NationalFocusFiles, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedNationalFocusFile, Mode=TwoWay}"
+            SelectionChanged="OnNationalFocusFileSelectionChanged"
+          >
+            <ListView.ItemTemplate>
+              <DataTemplate x:DataType="models:ProjectWorkspaceFile">
+                <StackPanel Padding="0,4">
+                  <TextBlock
+                    Text="{x:Bind RelativePath}"
+                    TextTrimming="CharacterEllipsis"
+                  />
+                  <TextBlock
+                    Text=".txt"
                     Foreground="{StaticResource TextFillColorTertiaryBrush}"
                   />
                 </StackPanel>
@@ -180,6 +220,7 @@
 
       <Grid
         Grid.Column="1"
+        Grid.ColumnSpan="2"
         RowSpacing="12"
         Visibility="{x:Bind ViewModel.VisualEditorVisibility, Mode=OneWay}"
       >
@@ -206,79 +247,8 @@
           />
         </StackPanel>
 
-        <Grid
-          Grid.Row="1"
-          Padding="0,0,0,12"
-          RowSpacing="8"
-          Visibility="{x:Bind ViewModel.NationalFocusEditorVisibility, Mode=OneWay}"
-        >
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-
-          <TextBlock
-            Text="No-Code National Focus Editor"
-            Style="{StaticResource BodyStrongTextBlockStyle}"
-          />
-
-          <ComboBox
-            Grid.Row="1"
-            DisplayMemberPath="DisplayName"
-            HorizontalAlignment="Stretch"
-            ItemsSource="{x:Bind ViewModel.NationalFocuses, Mode=OneWay}"
-            SelectedItem="{x:Bind ViewModel.SelectedNationalFocus, Mode=TwoWay}"
-          />
-
-          <Grid Grid.Row="2" ColumnSpacing="8" RowSpacing="8">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="2*" />
-              <ColumnDefinition Width="2*" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <TextBox
-              Header="ID"
-              Text="{x:Bind ViewModel.NationalFocusId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-            />
-            <TextBox
-              Grid.Column="1"
-              Header="Icon"
-              Text="{x:Bind ViewModel.NationalFocusIcon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-            />
-            <TextBox
-              Grid.Column="2"
-              Header="X"
-              Text="{x:Bind ViewModel.NationalFocusX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-            />
-            <TextBox
-              Grid.Row="1"
-              Header="Y"
-              Text="{x:Bind ViewModel.NationalFocusY, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-            />
-            <TextBox
-              Grid.Row="1"
-              Grid.Column="1"
-              Header="Cost"
-              Text="{x:Bind ViewModel.NationalFocusCost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-            />
-            <Button
-              Grid.Row="1"
-              Grid.Column="2"
-              VerticalAlignment="Bottom"
-              Content="Save Focus"
-              Command="{x:Bind ViewModel.SaveNationalFocusCommand, Mode=OneWay}"
-            />
-          </Grid>
-        </Grid>
-
         <TextBox
-          Grid.Row="2"
+          Grid.Row="1"
           AcceptsReturn="True"
           FontFamily="Consolas"
           HorizontalAlignment="Stretch"
@@ -288,6 +258,130 @@
           TextWrapping="NoWrap"
           VerticalAlignment="Stretch"
           VerticalContentAlignment="Stretch"
+        />
+      </Grid>
+
+      <Grid
+        Grid.Column="1"
+        RowSpacing="12"
+        Visibility="{x:Bind ViewModel.NationalFocusVisibility, Mode=OneWay}"
+      >
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock
+            VerticalAlignment="Center"
+            Text="National Focus Canvas"
+            Style="{StaticResource BodyStrongTextBlockStyle}"
+          />
+          <TextBlock
+            VerticalAlignment="Center"
+            Text="{x:Bind ViewModel.SelectedNationalFocusFile.RelativePath, Mode=OneWay, FallbackValue='Select a focus file'}"
+            Foreground="{StaticResource TextFillColorSecondaryBrush}"
+            TextTrimming="CharacterEllipsis"
+          />
+        </StackPanel>
+
+        <ScrollViewer
+          Grid.Row="1"
+          HorizontalScrollBarVisibility="Auto"
+          VerticalScrollBarVisibility="Auto"
+        >
+          <Canvas
+            x:Name="nationalFocusCanvas"
+            Width="1800"
+            Height="1200"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+          />
+        </ScrollViewer>
+      </Grid>
+
+      <Grid
+        Grid.Column="2"
+        RowSpacing="10"
+        Visibility="{x:Bind ViewModel.NationalFocusVisibility, Mode=OneWay}"
+      >
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+          Text="Focus Details"
+          Style="{StaticResource BodyStrongTextBlockStyle}"
+        />
+
+        <ComboBox
+          Grid.Row="1"
+          DisplayMemberPath="DisplayName"
+          HorizontalAlignment="Stretch"
+          IsEnabled="{x:Bind ViewModel.CanChangeWorkspaceSelection, Mode=OneWay}"
+          ItemsSource="{x:Bind ViewModel.VisibleNationalFocuses, Mode=OneWay}"
+          SelectedItem="{x:Bind ViewModel.SelectedNationalFocus, Mode=TwoWay}"
+          SelectionChanged="OnNationalFocusSelectionChanged"
+        />
+
+        <TextBox
+          Grid.Row="2"
+          Header="ID"
+          Text="{x:Bind ViewModel.NationalFocusId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+        />
+
+        <TextBox
+          Grid.Row="3"
+          Header="Icon"
+          Text="{x:Bind ViewModel.NationalFocusIcon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+        />
+
+        <Grid Grid.Row="4" ColumnSpacing="8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <TextBox
+            Header="X"
+            Text="{x:Bind ViewModel.NationalFocusX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          />
+          <TextBox
+            Grid.Column="1"
+            Header="Y"
+            Text="{x:Bind ViewModel.NationalFocusY, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          />
+          <TextBox
+            Grid.Column="2"
+            Header="Cost"
+            Text="{x:Bind ViewModel.NationalFocusCost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          />
+        </Grid>
+
+        <TextBox
+          Grid.Row="5"
+          AcceptsReturn="True"
+          FontFamily="Consolas"
+          Header="Effects"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Stretch"
+          Text="{x:Bind ViewModel.NationalFocusEffects, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          TextWrapping="NoWrap"
+          VerticalAlignment="Stretch"
+          VerticalContentAlignment="Stretch"
+        />
+
+        <Button
+          Grid.Row="6"
+          HorizontalAlignment="Right"
+          Content="Save Focus"
+          Command="{x:Bind ViewModel.SaveNationalFocusCommand, Mode=OneWay}"
         />
       </Grid>
     </Grid>

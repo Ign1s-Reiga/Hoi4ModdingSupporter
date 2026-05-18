@@ -7,7 +7,8 @@ namespace Hoi4ModdingSupporter.Models {
         string Icon,
         string X,
         string Y,
-        string Cost
+        string Cost,
+        string CompletionReward
     ) {
         public string DisplayName => string.IsNullOrWhiteSpace(Id)
             ? $"{SourceFile.RelativePath} focus #{BlockStartLine + 1}"

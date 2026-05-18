@@ -65,6 +65,7 @@
 				>
 					<NavigationViewItem.MenuItems>
 						<NavigationViewItem Icon="Edit" Content="Visual Mod Editor" Tag="WorkspaceEditor" />
+						<NavigationViewItem Icon="Edit" Content="National Focus" Tag="WorkspaceNationalFocus" />
 						<NavigationViewItem Icon="Library" Content="Mod Assets" Tag="WorkspaceModAssets" />
 						<NavigationViewItem Icon="Pictures" Content="Game Assets" Tag="WorkspaceGameAssets" />
 					</NavigationViewItem.MenuItems>

@@ -1,13 +1,20 @@
 using System;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Hoi4ModdingSupporter.Models;
 using Hoi4ModdingSupporter.ViewModels;
+using Microsoft.UI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace Hoi4ModdingSupporter.Views {
     public sealed partial class ProjectWorkspaceView : Page {
+        private ProjectWorkspaceViewModel? canvasViewModel;
+
         public ProjectWorkspaceViewModel ViewModel { get; private set; } = new(
             new RecentProjectRecord(
                 FolderPath: string.Empty,
@@ -31,6 +38,8 @@ namespace Hoi4ModdingSupporter.Views {
                 _ => ViewModel
             };
             Bindings.Update();
+            HookNationalFocusCanvas(ViewModel);
+            RenderNationalFocusCanvas();
         }
 
         private static RecentProjectRecord ToRecentProject(ModDescriptor descriptor) {
@@ -53,6 +62,7 @@ namespace Hoi4ModdingSupporter.Views {
 
             ViewModel.CurrentSection = section;
             Bindings.Update();
+            RenderNationalFocusCanvas();
             return true;
         }
 
@@ -73,7 +83,7 @@ namespace Hoi4ModdingSupporter.Views {
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Secondary) {
-                ViewModel.DiscardSelectedFileChanges();
+                ViewModel.DiscardPendingChanges();
                 return true;
             }
 
@@ -81,7 +91,7 @@ namespace Hoi4ModdingSupporter.Views {
                 return false;
             }
 
-            ViewModel.SaveSelectedFileCommand.Execute(null);
+            ViewModel.SavePendingChanges();
             return !ViewModel.HasUnsavedChanges;
         }
 
@@ -91,6 +101,100 @@ namespace Hoi4ModdingSupporter.Views {
             }
 
             ViewModel.SelectFile(file);
+        }
+
+        private void OnNationalFocusFileSelectionChanged(object sender, SelectionChangedEventArgs args) {
+            Bindings.Update();
+            RenderNationalFocusCanvas();
+        }
+
+        private void OnNationalFocusSelectionChanged(object sender, SelectionChangedEventArgs args) {
+            RenderNationalFocusCanvas();
+        }
+
+        private void HookNationalFocusCanvas(ProjectWorkspaceViewModel viewModel) {
+            if (canvasViewModel is not null) {
+                canvasViewModel.VisibleNationalFocuses.CollectionChanged -= OnVisibleNationalFocusesChanged;
+                canvasViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            }
+
+            canvasViewModel = viewModel;
+            canvasViewModel.VisibleNationalFocuses.CollectionChanged += OnVisibleNationalFocusesChanged;
+            canvasViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        private void OnVisibleNationalFocusesChanged(object? sender, NotifyCollectionChangedEventArgs args) {
+            RenderNationalFocusCanvas();
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args) {
+            if (args.PropertyName is nameof(ProjectWorkspaceViewModel.SelectedNationalFocus)) {
+                RenderNationalFocusCanvas();
+            }
+        }
+
+        private void RenderNationalFocusCanvas() {
+            nationalFocusCanvas.Children.Clear();
+
+            foreach (var focus in ViewModel.VisibleNationalFocuses) {
+                var button = CreateFocusButton(focus);
+                Canvas.SetLeft(button, GetFocusCanvasCoordinate(focus.X, ViewModel.VisibleNationalFocuses.IndexOf(focus), 170));
+                Canvas.SetTop(button, GetFocusCanvasCoordinate(focus.Y, ViewModel.VisibleNationalFocuses.IndexOf(focus), 120));
+                nationalFocusCanvas.Children.Add(button);
+            }
+        }
+
+        private Button CreateFocusButton(NationalFocusEntry focus) {
+            var isSelected = Equals(focus, ViewModel.SelectedNationalFocus);
+            var border = new Border {
+                Width = 112,
+                Height = 72,
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(isSelected ? 2 : 1),
+                BorderBrush = new SolidColorBrush(isSelected ? Colors.DodgerBlue : Colors.Gray),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Child = new StackPanel {
+                    Padding = new Thickness(6),
+                    Spacing = 4,
+                    Children = {
+                        new TextBlock {
+                            Text = string.IsNullOrWhiteSpace(focus.Icon) ? "No icon" : focus.Icon,
+                            TextTrimming = Microsoft.UI.Xaml.TextTrimming.CharacterEllipsis,
+                            FontSize = 11
+                        },
+                        new TextBlock {
+                            Text = focus.DisplayName,
+                            TextTrimming = Microsoft.UI.Xaml.TextTrimming.CharacterEllipsis,
+                            FontSize = 12
+                        }
+                    }
+                }
+            };
+
+            var button = new Button {
+                Padding = new Thickness(0),
+                Content = border
+            };
+            ToolTipService.SetToolTip(button, focus.DisplayName);
+            button.Click += (_, _) => {
+                if (!ViewModel.CanChangeWorkspaceSelection) {
+                    return;
+                }
+
+                ViewModel.SelectedNationalFocus = focus;
+                Bindings.Update();
+                RenderNationalFocusCanvas();
+            };
+
+            return button;
+        }
+
+        private static double GetFocusCanvasCoordinate(string value, int index, double size) {
+            if (int.TryParse(value, out var coordinate)) {
+                return Math.Max(24, coordinate * size + 24);
+            }
+
+            return index * size + 24;
         }
     }
 }

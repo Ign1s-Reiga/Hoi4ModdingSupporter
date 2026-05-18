@@ -151,6 +151,7 @@ namespace Hoi4ModdingSupporter.Views {
             section = WorkspaceSection.VisualEditor;
             return item is NavigationViewItem navigationItem && navigationItem.Tag switch {
                 "Workspace" or "WorkspaceEditor" => true,
+                "WorkspaceNationalFocus" => SetSection(WorkspaceSection.NationalFocus, out section),
                 "WorkspaceModAssets" => SetSection(WorkspaceSection.ModAssets, out section),
                 "WorkspaceGameAssets" => SetSection(WorkspaceSection.GameAssets, out section),
                 _ => false
