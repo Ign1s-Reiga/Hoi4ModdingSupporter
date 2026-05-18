@@ -16,19 +16,19 @@
     Background="{StaticResource CardBackgroundFillColorDefaultBrush}"
     BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
     BorderThickness="1"
-    CornerRadius="{StaticResource OverlayCornerRadius}"
+    CornerRadius="8,8,8,8"
   >
-    <Grid RowSpacing="10">
+    <Grid RowSpacing="8">
       <Grid.RowDefinitions>
-        <RowDefinition Height="96" />
-        <RowDefinition Height="Auto" />
+        <RowDefinition Height="76" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
       <Grid
         Background="{StaticResource LayerFillColorDefaultBrush}"
-        CornerRadius="6"
+        CornerRadius="6,6,6,6"
       >
         <FontIcon
           Glyph="&#xE8B7;"
@@ -38,22 +38,24 @@
       </Grid>
 
       <TextBlock
+        x:Name="displayNameTextBlock"
         Grid.Row="1"
-        Text="{x:Bind DisplayName, Mode=OneWay}"
         Style="{StaticResource BodyStrongTextBlockStyle}"
         TextTrimming="CharacterEllipsis"
       />
       <TextBlock
+        x:Name="folderPathTextBlock"
         Grid.Row="2"
-        Text="{x:Bind FolderPath, Mode=OneWay}"
         Foreground="{StaticResource TextFillColorSecondaryBrush}"
+        MaxLines="2"
         TextTrimming="CharacterEllipsis"
+        TextWrapping="Wrap"
       />
       <TextBlock
+        x:Name="lastAccessedTextBlock"
         Grid.Row="3"
-        Text="{x:Bind LastAccessedText, Mode=OneWay}"
-        VerticalAlignment="Bottom"
         Foreground="{StaticResource TextFillColorTertiaryBrush}"
+        TextTrimming="CharacterEllipsis"
       />
     </Grid>
   </Border>

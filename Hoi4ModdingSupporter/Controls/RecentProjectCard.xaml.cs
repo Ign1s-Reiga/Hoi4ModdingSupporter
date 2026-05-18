@@ -29,12 +29,19 @@ namespace Hoi4ModdingSupporter.Controls {
 
         public RecentProjectCard() {
             InitializeComponent();
+            UpdateText();
         }
 
         private static void OnRecentProjectChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args) {
             if (dependencyObject is RecentProjectCard card) {
-                card.Bindings.Update();
+                card.UpdateText();
             }
+        }
+
+        private void UpdateText() {
+            displayNameTextBlock.Text = DisplayName;
+            folderPathTextBlock.Text = FolderPath;
+            lastAccessedTextBlock.Text = LastAccessedText;
         }
     }
 }

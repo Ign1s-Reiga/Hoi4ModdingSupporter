@@ -13,6 +13,21 @@ namespace Hoi4ModdingSupporter.Views {
 
         public HomeView() {
             InitializeComponent();
+            InitializeRecentProjectsView();
+        }
+
+        private void InitializeRecentProjectsView() {
+            var recentProjectsView = new ItemsView {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                ItemsSource = ViewModel.RecentProjects,
+                ItemTemplate = (DataTemplate)Resources["RecentProjectTemplate"],
+                Layout = new StackLayout {
+                    Orientation = Orientation.Horizontal
+                },
+                SelectionMode = ItemsViewSelectionMode.None
+            };
+            recentProjectsView.ItemInvoked += OnRecentProjectInvoked;
+            recentProjectsHost.Children.Add(recentProjectsView);
         }
 
         private async void OnOpenProjectClicked(object sender, RoutedEventArgs args) {
@@ -44,8 +59,8 @@ namespace Hoi4ModdingSupporter.Views {
             await ShowErrorDialogAsync(descriptorResult.Errors.FirstOrDefault()?.Message ?? "Failed to open the selected mod file.");
         }
 
-        private void OnRecentProjectClicked(object sender, ItemClickEventArgs args) {
-            if (args.ClickedItem is RecentProjectRecord project) {
+        private void OnRecentProjectInvoked(ItemsView sender, ItemsViewItemInvokedEventArgs args) {
+            if (args.InvokedItem is RecentProjectRecord project) {
                 _ = OpenRecentProjectAsync(project);
             }
         }
