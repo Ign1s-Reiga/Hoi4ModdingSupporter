@@ -20,6 +20,7 @@
     <None Remove="Controls\HeaderText.xaml" />
     <None Remove="Controls\RecentProjectCard.xaml" />
     <None Remove="Views\HomeView.xaml" />
+    <None Remove="Views\LocalisationWorkspaceView.xaml" />
     <None Remove="Views\ProjectWorkspaceView.xaml" />
     <None Remove="Views\SettingsView.xaml" />
   </ItemGroup>
@@ -60,6 +61,11 @@
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\HomeView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\LocalisationWorkspaceView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

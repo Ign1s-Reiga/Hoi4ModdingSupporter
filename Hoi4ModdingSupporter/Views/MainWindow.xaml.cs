@@ -122,14 +122,30 @@ namespace Hoi4ModdingSupporter.Views {
         }
 
         private async Task<bool> ConfirmCurrentPageCanNavigateAsync() {
-            return navFrame.Content is not ProjectWorkspaceView workspace
-                || await workspace.ConfirmNavigationAwayAsync();
+            return navFrame.Content switch {
+                ProjectWorkspaceView workspace => await workspace.ConfirmNavigationAwayAsync(),
+                LocalisationWorkspaceView localisationWorkspace => await localisationWorkspace.ConfirmNavigationAwayAsync(),
+                _ => true
+            };
         }
 
         private async Task<bool> SelectWorkspaceSectionAsync(WorkspaceSection section) {
             if (currentWorkspace is null) {
                 RestoreSelectedNavigationItem();
                 return false;
+            }
+
+            if (section == WorkspaceSection.Localisation) {
+                if (navFrame.Content is LocalisationWorkspaceView) {
+                    return true;
+                }
+
+                if (!await ConfirmCurrentPageCanNavigateAsync()) {
+                    return false;
+                }
+
+                navFrame.Navigate(typeof(LocalisationWorkspaceView), currentWorkspace);
+                return true;
             }
 
             if (navFrame.Content is ProjectWorkspaceView workspace) {
@@ -152,6 +168,7 @@ namespace Hoi4ModdingSupporter.Views {
             return item is NavigationViewItem navigationItem && navigationItem.Tag switch {
                 "Workspace" or "WorkspaceEditor" => true,
                 "WorkspaceNationalFocus" => SetSection(WorkspaceSection.NationalFocus, out section),
+                "WorkspaceLocalisation" => SetSection(WorkspaceSection.Localisation, out section),
                 "WorkspaceModAssets" => SetSection(WorkspaceSection.ModAssets, out section),
                 "WorkspaceGameAssets" => SetSection(WorkspaceSection.GameAssets, out section),
                 _ => false
