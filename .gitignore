@@ -1,3 +1,38 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# rust / tauri
+src-tauri/target/
+src-tauri/gen/
+
+# production
+build/
+dist/
+
+# misc
+.DS_Store
+*.pem
 .vs/
-Hoi4ModdingSupporter/obj/
-Hoi4ModdingSupporter/bin/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
