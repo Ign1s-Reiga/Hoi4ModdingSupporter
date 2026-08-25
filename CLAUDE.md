@@ -1,4 +1,4 @@
-# AGENTS.md
+# CLAUDE.md
 
 ## Project Description
 
@@ -29,30 +29,49 @@ editor that rewrites those ranges. Editing is always surgical — a save must
 leave comments, spacing and unrelated keys exactly as the author wrote them.
 Never re-serialise a whole file to write one field.
 
-Two format rules the game enforces and the code must keep:
+Three rules that fall out of that, each learned from a bug:
 
-- Localisation `.yml` files only load with a UTF-8 BOM, so one is always written.
-- Some older script files are Windows-1252; they are decoded on read and flagged
-  rather than corrupted.
+- **Batch additions.** Every new line inserted into a block targets the same
+  span just before its closing brace, so two separate insertions collide and
+  `apply_edits` keeps only the first. Go through `BlockEditor`, which collects
+  them into one insertion.
+- **Skip no-op edits.** If a field already says what it is being set to, emit
+  no edit at all. Rewriting an unchanged `prerequisite` block would throw away
+  the comments inside it.
+- **Round-trip the encoding.** A file read as Windows-1252 is written back as
+  Windows-1252; only text that no longer fits falls back to UTF-8, and the
+  caller is told. Never silently transcode a file the user only partly edited.
+
+Localisation is the one deliberate exception: `.yml` files are always written
+as UTF-8 with a BOM, because the game ignores them otherwise. Entry lines that
+did not change are still copied through untouched.
 
 ## Code Style
 
 - Follow `.editorconfig` (2 spaces, CRLF; 4 spaces in Rust).
 - Rust: no `unwrap()` on anything that can fail at runtime — return `AppError`.
-- TypeScript: `strict` mode, no `any`. Prefer deriving state over duplicating it.
+- TypeScript: `strict` mode, no `any`. Derive state rather than mirroring it in
+  an effect; `react-hooks/set-state-in-effect` is enforced.
 - Comments explain why, not what. Skip comments that restate the code.
 
 ## Testing
 
-- `pnpm test:rust` — the parser, editor, focus, localisation and settings tests.
-  Any change to parsing or writing needs a test that proves the round trip.
+- `pnpm test:rust` — the parser, editor, focus, localisation, settings and
+  asset tests. Any change to parsing or writing needs a test that proves the
+  round trip, including what the save must *not* disturb.
 - `pnpm typecheck` and `pnpm lint` before finishing frontend work.
+- `pnpm desktop` runs the app; `pnpm desktop:build` produces a bundle.
+
+ESLint deliberately does not use the `eslint-config-next` base config: it loads
+eslint-plugin-import with a TypeScript resolver whose native binding hangs on
+Node 26. Rules come from the TypeScript, React hooks and Next plugins directly.
 
 ## Git Strategy
 
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 - Branch names are `<type>/<hyphenated-abstract>`, e.g. `feat/focus-canvas`.
 - One commit per logical change.
+- Commits are GPG-signed; never bypass signing to get a commit through.
 
 ## Want to do
 
