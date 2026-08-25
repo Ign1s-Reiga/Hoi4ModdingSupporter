@@ -10,6 +10,7 @@
     "dialog:allow-message",
     "dialog:allow-confirm",
     "opener:allow-open-path",
+    "opener:allow-reveal-item-in-dir",
     "opener:allow-open-url"
   ]
 }
