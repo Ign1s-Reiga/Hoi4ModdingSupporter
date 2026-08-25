@@ -131,54 +131,143 @@ fn pair_owns_its_line(source: &str, pair: &Pair) -> bool {
     leading_is_blank && trailing_is_blank
 }
 
-/// Sets `key = value` inside `block`, inserting the key when it is missing and
-/// deleting it when `value` is empty.
-pub fn set_scalar(source: &str, block: &Block, key: &str, value: &str) -> Vec<TextEdit> {
-    let existing = block.find(key);
-    let trimmed = value.trim();
+/// What setting one field resolves to against the current source.
+enum Change {
+    /// Rewrite the value of an assignment that is already there.
+    Replace(TextEdit),
+    /// Delete an assignment that is already there.
+    Remove(Vec<TextEdit>),
+    /// Append a new line to the block body.
+    Add(String),
+    Nothing,
+}
 
-    match (existing, trimmed.is_empty()) {
-        (Some(pair), true) => remove_pair(source, pair),
-        (Some(pair), false) => {
-            let raw = if needs_quotes(trimmed) {
-                quote(trimmed)
-            } else {
-                trimmed.to_string()
-            };
-            vec![TextEdit::new(pair.value.span(), raw)]
+fn scalar_change(source: &str, block: &Block, key: &str, value: &str) -> Change {
+    let trimmed = value.trim();
+    let existing = block.find(key);
+
+    if trimmed.is_empty() {
+        return match existing {
+            Some(pair) => Change::Remove(remove_pair(source, pair)),
+            None => Change::Nothing,
+        };
+    }
+
+    let raw = if needs_quotes(trimmed) {
+        quote(trimmed)
+    } else {
+        trimmed.to_string()
+    };
+
+    match existing {
+        Some(pair) => Change::Replace(TextEdit::new(pair.value.span(), raw)),
+        None => Change::Add(format!("{key} = {raw}")),
+    }
+}
+
+fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change {
+    let trimmed = content.trim();
+    let existing = block.find(key);
+    let newline = detect_newline(source);
+
+    if trimmed.is_empty() {
+        return match existing {
+            Some(pair) => Change::Remove(remove_pair(source, pair)),
+            None => Change::Nothing,
+        };
+    }
+
+    match existing {
+        Some(pair) => {
+            let indent = indent_at(source, pair.span.start);
+            Change::Replace(TextEdit::new(
+                pair.value.span(),
+                format_block(trimmed, &indent, newline),
+            ))
         }
-        (None, true) => Vec::new(),
-        (None, false) => {
-            let raw = if needs_quotes(trimmed) {
-                quote(trimmed)
-            } else {
-                trimmed.to_string()
-            };
-            vec![insert_line(source, block, &format!("{key} = {raw}"))]
+        None => {
+            let indent = child_indent(source, block);
+            Change::Add(format!("{key} = {}", format_block(trimmed, &indent, newline)))
         }
     }
 }
 
-/// Sets `key = { ... }` inside `block` with `content` as the block body.
-pub fn set_block(source: &str, block: &Block, key: &str, content: &str) -> Vec<TextEdit> {
-    let existing = block.find(key);
-    let trimmed = content.trim();
+/// Collects every edit made to one block.
+///
+/// New lines are gathered and emitted as a single insertion when the editor is
+/// finished. Each insertion targets the same span just before the closing
+/// brace, so appending them one at a time would leave `apply_edits` keeping
+/// only the first and silently dropping the rest.
+pub struct BlockEditor<'a> {
+    source: &'a str,
+    block: &'a Block,
+    edits: Vec<TextEdit>,
+    additions: Vec<String>,
+}
 
-    match (existing, trimmed.is_empty()) {
-        (Some(pair), true) => remove_pair(source, pair),
-        (Some(pair), false) => {
-            let indent = indent_at(source, pair.span.start);
-            let newline = detect_newline(source);
-            let formatted = format_block(trimmed, &indent, newline);
-            vec![TextEdit::new(pair.value.span(), formatted)]
+impl<'a> BlockEditor<'a> {
+    pub fn new(source: &'a str, block: &'a Block) -> Self {
+        Self {
+            source,
+            block,
+            edits: Vec::new(),
+            additions: Vec::new(),
         }
-        (None, true) => Vec::new(),
-        (None, false) => {
-            let indent = child_indent(source, block);
-            let newline = detect_newline(source);
-            let formatted = format_block(trimmed, &indent, newline);
-            vec![insert_line(source, block, &format!("{key} = {formatted}"))]
+    }
+
+    pub fn source(&self) -> &'a str {
+        self.source
+    }
+
+    pub fn block(&self) -> &'a Block {
+        self.block
+    }
+
+    /// Sets `key = value`, adding the key when it is missing and deleting it
+    /// when `value` is empty.
+    pub fn set_scalar(&mut self, key: &str, value: &str) -> &mut Self {
+        let change = scalar_change(self.source, self.block, key, value);
+        self.apply(change)
+    }
+
+    /// Sets `key = { ... }` with `content` as the body.
+    pub fn set_block(&mut self, key: &str, content: &str) -> &mut Self {
+        let change = block_change(self.source, self.block, key, content);
+        self.apply(change)
+    }
+
+    pub fn edit(&mut self, edit: TextEdit) -> &mut Self {
+        self.edits.push(edit);
+        self
+    }
+
+    pub fn remove(&mut self, pair: &Pair) -> &mut Self {
+        self.edits.extend(remove_pair(self.source, pair));
+        self
+    }
+
+    /// Queues a whole line to append inside the block.
+    pub fn add_line(&mut self, line: String) -> &mut Self {
+        self.additions.push(line);
+        self
+    }
+
+    fn apply(&mut self, change: Change) -> &mut Self {
+        match change {
+            Change::Replace(edit) => self.edits.push(edit),
+            Change::Remove(edits) => self.edits.extend(edits),
+            Change::Add(line) => self.additions.push(line),
+            Change::Nothing => {}
         }
+        self
+    }
+
+    pub fn finish(mut self) -> Vec<TextEdit> {
+        if !self.additions.is_empty() {
+            let insertion = insert_lines(self.source, self.block, &self.additions);
+            self.edits.push(insertion);
+        }
+        self.edits
     }
 }
 
@@ -198,11 +287,6 @@ pub fn remove_pair(source: &str, pair: &Pair) -> Vec<TextEdit> {
     }
 
     vec![TextEdit::new(Span::new(start, end), String::new())]
-}
-
-/// An edit inserting `text` as a new last line inside `block`.
-pub fn insert_line(source: &str, block: &Block, text: &str) -> TextEdit {
-    insert_lines(source, block, std::slice::from_ref(&text.to_string()))
 }
 
 /// An edit appending several lines inside `block`, as one contiguous rewrite so
@@ -309,28 +393,32 @@ pub fn block_body(source: &str, value: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paradox::parser::Document;
     use crate::paradox::parse;
-
-    /// The first `focus` block inside the first `focus_tree` of a document.
-    fn focus_block(document: &Document) -> &Block {
-        document
-            .find("focus_tree")
-            .and_then(|tree| tree.value.as_block())
-            .and_then(|tree| tree.find("focus"))
-            .and_then(|focus| focus.value.as_block())
-            .expect("the sample has a focus")
-    }
 
     const SOURCE: &str = "focus_tree = {\n\tid = tree\n\tfocus = {\n\t\tid = alpha\n\t\tx = 1\n\t\tcost = 10\n\t}\n}\n";
 
+    /// Runs `apply` against the first `focus` block in `source` and returns the
+    /// rewritten file.
+    fn edit_focus(source: &str, apply: impl FnOnce(&mut BlockEditor<'_>)) -> String {
+        let document = parse(source).expect("parses");
+        let block = document
+            .find("focus_tree")
+            .and_then(|tree| tree.value.as_block())
+            .and_then(|tree| tree.find("focus"))
+            .or_else(|| document.find("focus"))
+            .and_then(|focus| focus.value.as_block())
+            .expect("the sample has a focus");
+
+        let mut editor = BlockEditor::new(source, block);
+        apply(&mut editor);
+        apply_edits(source, editor.finish())
+    }
+
     #[test]
     fn replaces_an_existing_scalar() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
-
-        let edits = set_scalar(SOURCE, block, "x", "7");
-        let result = apply_edits(SOURCE, edits);
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("x", "7");
+        });
 
         assert!(result.contains("x = 7"));
         assert!(result.contains("id = alpha"));
@@ -338,23 +426,52 @@ mod tests {
 
     #[test]
     fn inserts_a_missing_scalar_with_matching_indentation() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
-
-        let edits = set_scalar(SOURCE, block, "y", "4");
-        let result = apply_edits(SOURCE, edits);
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("y", "4");
+        });
 
         assert!(result.contains("\n\t\ty = 4\n"), "unexpected output:\n{result}");
         assert!(result.contains("cost = 10"));
     }
 
     #[test]
-    fn removes_a_scalar_when_the_value_is_cleared() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
+    fn adds_every_missing_field_rather_than_only_the_first() {
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("y", "4");
+            editor.set_scalar("relative_position_id", "beta");
+            editor.set_block("completion_reward", "add_political_power = 50");
+        });
 
-        let edits = set_scalar(SOURCE, block, "cost", "");
-        let result = apply_edits(SOURCE, edits);
+        // Each of these targets the same span before the closing brace, so all
+        // three have to land in one insertion.
+        assert!(result.contains("y = 4"), "missing y:\n{result}");
+        assert!(
+            result.contains("relative_position_id = beta"),
+            "missing relative_position_id:\n{result}"
+        );
+        assert!(
+            result.contains("completion_reward = { add_political_power = 50 }"),
+            "missing completion_reward:\n{result}"
+        );
+        assert!(result.contains("id = alpha"));
+    }
+
+    #[test]
+    fn mixes_additions_with_replacements() {
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("cost", "25");
+            editor.set_scalar("y", "9");
+        });
+
+        assert!(result.contains("cost = 25"));
+        assert!(result.contains("y = 9"));
+    }
+
+    #[test]
+    fn removes_a_scalar_when_the_value_is_cleared() {
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("cost", "");
+        });
 
         assert!(!result.contains("cost"));
         assert!(result.contains("x = 1"));
@@ -362,25 +479,21 @@ mod tests {
 
     #[test]
     fn quotes_values_that_need_it() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("id", "two words");
+        });
 
-        let result = apply_edits(SOURCE, set_scalar(SOURCE, block, "id", "two words"));
         assert!(result.contains("id = \"two words\""));
     }
 
     #[test]
     fn writes_a_multiline_block() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
-
-        let edits = set_block(
-            SOURCE,
-            block,
-            "completion_reward",
-            "add_political_power = 120\nadd_stability = 0.05",
-        );
-        let result = apply_edits(SOURCE, edits);
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_block(
+                "completion_reward",
+                "add_political_power = 120\nadd_stability = 0.05",
+            );
+        });
 
         assert!(result.contains("completion_reward = {"));
         assert!(result.contains("\t\t\tadd_political_power = 120"));
@@ -389,14 +502,9 @@ mod tests {
 
     #[test]
     fn removing_a_key_keeps_its_line_mates() {
-        let source = "focus = { id = alpha x = 1 y = 2 }\n";
-        let document = parse(source).expect("parses");
-        let block = document
-            .find("focus")
-            .and_then(|focus| focus.value.as_block())
-            .expect("focus block");
-
-        let result = apply_edits(source, set_scalar(source, block, "x", ""));
+        let result = edit_focus("focus = { id = alpha x = 1 y = 2 }\n", |editor| {
+            editor.set_scalar("x", "");
+        });
 
         assert!(result.contains("id = alpha"));
         assert!(result.contains("y = 2"));
@@ -405,11 +513,9 @@ mod tests {
 
     #[test]
     fn removing_a_key_that_owns_its_line_drops_the_line() {
-        let result = {
-            let document = parse(SOURCE).expect("parses");
-            let block = focus_block(&document);
-            apply_edits(SOURCE, set_scalar(SOURCE, block, "x", ""))
-        };
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("x", "");
+        });
 
         assert!(!result.contains("x = 1"));
         // No blank line is left where the assignment used to be.
@@ -419,11 +525,9 @@ mod tests {
     #[test]
     fn keeps_unrelated_comments_and_spacing() {
         let source = "focus = {\n\tid = alpha # keep me\n\n\t# a note\n\tx = 1\n}\n";
-        let document = parse(source).expect("parses");
-        let focus = document.find("focus").expect("focus");
-        let block = focus.value.as_block().expect("block");
-
-        let result = apply_edits(source, set_scalar(source, block, "x", "9"));
+        let result = edit_focus(source, |editor| {
+            editor.set_scalar("x", "9");
+        });
 
         assert!(result.contains("# keep me"));
         assert!(result.contains("# a note"));
@@ -432,12 +536,10 @@ mod tests {
 
     #[test]
     fn later_edits_do_not_shift_earlier_ones() {
-        let document = parse(SOURCE).expect("parses");
-        let block = focus_block(&document);
-
-        let mut edits = set_scalar(SOURCE, block, "id", "renamed");
-        edits.extend(set_scalar(SOURCE, block, "cost", "25"));
-        let result = apply_edits(SOURCE, edits);
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("id", "renamed");
+            editor.set_scalar("cost", "25");
+        });
 
         assert!(result.contains("id = renamed"));
         assert!(result.contains("cost = 25"));

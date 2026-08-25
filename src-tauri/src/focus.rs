@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 use crate::paradox::edit::{
     apply_edits, block_body, child_indent, detect_newline, format_block, indent_at, insert_lines,
-    remove_pair, set_block, set_scalar, TextEdit,
+    remove_pair, BlockEditor, TextEdit,
 };
 use crate::paradox::{self, Block, Item, Items, Pair, Value};
 use crate::text_file;
@@ -63,7 +63,7 @@ pub struct FocusFile {
     pub trees: Vec<FocusTree>,
     pub focuses: Vec<Focus>,
     pub has_bom: bool,
-    pub is_legacy_encoding: bool,
+    pub encoding: text_file::Encoding,
 }
 
 /// The editable fields sent back when saving. Empty strings clear a field.
@@ -143,7 +143,7 @@ pub fn read(path: &str) -> AppResult<FocusFile> {
         trees,
         focuses,
         has_bom: file.has_bom,
-        is_legacy_encoding: file.is_legacy_encoding,
+        encoding: file.encoding,
     })
 }
 
@@ -212,7 +212,7 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
         AppError::message(format!("no focus with id `{focus_id}` exists in {path}"))
     })?;
 
-    let mut edits = Vec::new();
+    let mut editor = BlockEditor::new(source, focus);
 
     for (key, value) in [
         ("id", &update.id),
@@ -222,7 +222,7 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
         ("cost", &update.cost),
         ("relative_position_id", &update.relative_position_id),
     ] {
-        edits.extend(set_scalar(source, focus, key, value));
+        editor.set_scalar(key, value);
     }
 
     for (key, value) in BLOCK_FIELDS.iter().zip([
@@ -232,30 +232,20 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
         &update.completion_reward,
         &update.ai_will_do,
     ]) {
-        edits.extend(set_block(source, focus, key, value));
+        editor.set_block(key, value);
     }
 
-    edits.extend(set_reference_groups(
-        source,
-        focus,
-        "prerequisite",
-        &update.prerequisites,
-    ));
+    set_reference_groups(&mut editor, "prerequisite", &update.prerequisites);
 
     let exclusive_groups = if update.mutually_exclusive.is_empty() {
         Vec::new()
     } else {
         vec![update.mutually_exclusive.clone()]
     };
-    edits.extend(set_reference_groups(
-        source,
-        focus,
-        "mutually_exclusive",
-        &exclusive_groups,
-    ));
+    set_reference_groups(&mut editor, "mutually_exclusive", &exclusive_groups);
 
-    let updated = apply_edits(source, edits);
-    text_file::write(Path::new(path), &updated, file.has_bom)?;
+    let updated = apply_edits(source, editor.finish());
+    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
 
     read(path)
 }
@@ -305,7 +295,7 @@ pub fn add(path: &str, tree_id: &str, focus: &FocusUpdate) -> AppResult<FocusFil
     let line = format!("focus = {{{newline}{body}{newline}{indent}}}");
 
     let updated = apply_edits(source, vec![insert_lines(source, tree_block, &[line])]);
-    text_file::write(Path::new(path), &updated, file.has_bom)?;
+    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
 
     read(path)
 }
@@ -323,57 +313,69 @@ pub fn delete(path: &str, focus_id: &str) -> AppResult<FocusFile> {
     })?;
 
     let updated = apply_edits(source, remove_pair(source, pair));
-    text_file::write(Path::new(path), &updated, file.has_bom)?;
+    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
 
     read(path)
 }
 
 /// Writes a repeated `key = { focus = ... }` field, reusing the blocks that are
 /// already there so untouched groups keep their formatting.
-fn set_reference_groups(
-    source: &str,
-    block: &Block,
-    key: &str,
-    groups: &[Vec<String>],
-) -> Vec<TextEdit> {
-    let wanted: Vec<&Vec<String>> = groups.iter().filter(|group| !group.is_empty()).collect();
+fn set_reference_groups(editor: &mut BlockEditor<'_>, key: &str, groups: &[Vec<String>]) {
+    let source = editor.source();
+    let block = editor.block();
+
+    let wanted: Vec<Vec<String>> = groups
+        .iter()
+        .map(|group| normalise_ids(group))
+        .filter(|group| !group.is_empty())
+        .collect();
     let existing = block.find_all(key);
     let newline = detect_newline(source);
-    let mut edits = Vec::new();
 
     for (group, pair) in wanted.iter().zip(existing.iter()) {
+        // A block already listing exactly these focuses is left alone, so its
+        // comments and spacing survive an edit to some unrelated field.
+        let unchanged = pair
+            .value
+            .as_block()
+            .is_some_and(|current| collect_focus_references(current) == *group);
+        if unchanged {
+            continue;
+        }
+
         let indent = indent_at(source, pair.span.start);
-        edits.push(TextEdit::new(
+        editor.edit(TextEdit::new(
             pair.value.span(),
             format_block(&render_references(group), &indent, newline),
         ));
     }
 
     for pair in existing.iter().skip(wanted.len()) {
-        edits.extend(remove_pair(source, pair));
+        editor.remove(pair);
     }
 
     if wanted.len() > existing.len() {
         let indent = child_indent(source, block);
-        let lines: Vec<String> = wanted[existing.len()..]
-            .iter()
-            .map(|group| {
-                format!(
-                    "{key} = {}",
-                    format_block(&render_references(group), &indent, newline)
-                )
-            })
-            .collect();
-        edits.push(insert_lines(source, block, &lines));
+        for group in &wanted[existing.len()..] {
+            editor.add_line(format!(
+                "{key} = {}",
+                format_block(&render_references(group), &indent, newline)
+            ));
+        }
     }
+}
 
-    edits
+/// Trims the ids a form sends and drops the blanks.
+fn normalise_ids(ids: &[String]) -> Vec<String> {
+    ids.iter()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+        .collect()
 }
 
 fn render_references(ids: &[String]) -> String {
     ids.iter()
-        .filter(|id| !id.trim().is_empty())
-        .map(|id| format!("focus = {}", id.trim()))
+        .map(|id| format!("focus = {id}"))
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -394,17 +396,21 @@ fn render_focus_body(focus: &FocusUpdate, indent: &str, newline: &str) -> String
         }
     }
 
-    for group in focus.prerequisites.iter().filter(|group| !group.is_empty()) {
+    for group in focus.prerequisites.iter().map(|group| normalise_ids(group)) {
+        if group.is_empty() {
+            continue;
+        }
         lines.push(format!(
             "{indent}prerequisite = {}",
-            format_block(&render_references(group), indent, newline)
+            format_block(&render_references(&group), indent, newline)
         ));
     }
 
-    if !focus.mutually_exclusive.is_empty() {
+    let exclusive = normalise_ids(&focus.mutually_exclusive);
+    if !exclusive.is_empty() {
         lines.push(format!(
             "{indent}mutually_exclusive = {}",
-            format_block(&render_references(&focus.mutually_exclusive), indent, newline)
+            format_block(&render_references(&exclusive), indent, newline)
         ));
     }
 
@@ -525,6 +531,82 @@ mod tests {
             .expect("beta survives");
         assert_eq!(beta.cost, "5");
         assert_eq!(beta.mutually_exclusive, vec!["gamma".to_string()]);
+    }
+
+    #[test]
+    fn filling_in_several_missing_fields_writes_all_of_them() {
+        let path = write_temp(
+            "missing.txt",
+            "focus_tree = {\n\tid = test_tree\n\tfocus = {\n\t\tid = alpha\n\t}\n}\n",
+        );
+        let change = FocusUpdate {
+            id: "alpha".into(),
+            icon: "GFX_goal_a".into(),
+            x: "3".into(),
+            y: "4".into(),
+            cost: "10".into(),
+            completion_reward: "add_political_power = 60".into(),
+            ..Default::default()
+        };
+
+        let file = update(&path, "alpha", &change).expect("updates");
+        let alpha = &file.focuses[0];
+
+        assert_eq!(alpha.icon, "GFX_goal_a");
+        assert_eq!(alpha.x, "3");
+        assert_eq!(alpha.y, "4");
+        assert_eq!(alpha.cost, "10");
+        assert_eq!(alpha.completion_reward, "add_political_power = 60");
+    }
+
+    #[test]
+    fn leaves_an_unchanged_prerequisite_block_alone() {
+        let path = write_temp(
+            "prerequisite.txt",
+            "focus_tree = {\n\tid = test_tree\n\tfocus = {\n\t\tid = beta\n\t\tcost = 5\n\t\tprerequisite = {\n\t\t\t# the army branch\n\t\t\tfocus = alpha\n\t\t}\n\t}\n}\n",
+        );
+        let file = read(&path).expect("reads");
+        let beta = file
+            .focuses
+            .iter()
+            .find(|focus| focus.id == "beta")
+            .expect("beta");
+
+        let change = FocusUpdate {
+            id: beta.id.clone(),
+            cost: "9".into(),
+            prerequisites: beta.prerequisites.clone(),
+            ..Default::default()
+        };
+        update(&path, "beta", &change).expect("updates");
+
+        let saved = std::fs::read_to_string(&path).expect("read back");
+        assert!(saved.contains("# the army branch"), "comment lost:\n{saved}");
+        assert!(saved.contains("cost = 9"));
+    }
+
+    #[test]
+    fn keeps_windows_1252_bytes_when_saving_a_focus() {
+        let path = write_temp("legacy.txt", "");
+        // 0xE9 is `é` in Windows-1252 and not valid UTF-8 on its own.
+        std::fs::write(
+            &path,
+            b"focus_tree = {\n\tid = t\n\tfocus = {\n\t\tid = caf\xE9_focus\n\t\tcost = 5\n\t}\n}\n",
+        )
+        .expect("write");
+
+        let change = FocusUpdate {
+            id: "caf\u{E9}_focus".into(),
+            cost: "7".into(),
+            ..Default::default()
+        };
+        update(&path, "caf\u{E9}_focus", &change).expect("updates");
+
+        let bytes = std::fs::read(&path).expect("read back");
+        assert!(
+            bytes.windows(2).any(|pair| pair == [0xE9, b'_']),
+            "the Windows-1252 byte was re-encoded"
+        );
     }
 
     #[test]

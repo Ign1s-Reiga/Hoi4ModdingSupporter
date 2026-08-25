@@ -20,7 +20,7 @@ import { SCRIPT_GROUPS, filterFiles } from "@/lib/groups";
 import { api, describeError } from "@/lib/ipc";
 import { useAppStore } from "@/lib/store";
 import { formatBytes } from "@/lib/utils";
-import type { ProjectFile } from "@/lib/types";
+import type { Encoding, ProjectFile } from "@/lib/types";
 
 /** Rendering every row of a total conversion would stall the list. */
 const MAX_ROWS = 400;
@@ -35,7 +35,7 @@ export default function ScriptsPage() {
   const [content, setContent] = React.useState("");
   const [saved, setSaved] = React.useState("");
   const [hasBom, setHasBom] = React.useState(false);
-  const [isLegacy, setIsLegacy] = React.useState(false);
+  const [encoding, setEncoding] = React.useState<Encoding>("utf8");
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -62,7 +62,7 @@ export default function ScriptsPage() {
       setContent(loaded.content);
       setSaved(loaded.content);
       setHasBom(loaded.hasBom);
-      setIsLegacy(loaded.isLegacyEncoding);
+      setEncoding(loaded.encoding);
     } catch (error) {
       setError(describeError(error));
       setSelected(null);
@@ -76,9 +76,16 @@ export default function ScriptsPage() {
 
     setIsSaving(true);
     try {
-      await api.writeTextFile(selected.fullPath, content, hasBom);
+      const used = await api.writeTextFile(selected.fullPath, content, encoding, hasBom);
       setSaved(content);
-      toast.success(`Saved ${selected.name}`);
+
+      if (used === encoding) {
+        toast.success(`Saved ${selected.name}`);
+      } else {
+        // The text outgrew Windows-1252, so the backend fell back to UTF-8.
+        setEncoding(used);
+        toast.warning(`Saved ${selected.name} as UTF-8 - the new text does not fit Windows-1252`);
+      }
     } catch (error) {
       const message = describeError(error);
       setError(message);
@@ -86,7 +93,7 @@ export default function ScriptsPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [content, hasBom, selected, setError]);
+  }, [content, encoding, hasBom, selected, setError]);
 
   return (
     <div className="grid h-full grid-cols-[minmax(16rem,22rem)_1fr] gap-3 p-3">
@@ -164,7 +171,7 @@ export default function ScriptsPage() {
           title={selected ? selected.relativePath : "No file selected"}
           subtitle={
             selected
-              ? `${formatBytes(selected.sizeBytes)}${hasBom ? " · BOM" : ""}${isLegacy ? " · Windows-1252" : ""}`
+              ? `${formatBytes(selected.sizeBytes)}${hasBom ? " · BOM" : ""}${encoding === "windows1252" ? " · Windows-1252" : ""}`
               : "Pick a file from the list"
           }
           actions={

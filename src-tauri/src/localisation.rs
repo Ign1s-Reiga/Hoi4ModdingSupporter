@@ -31,7 +31,7 @@ pub struct LocalisationFile {
     pub language: String,
     pub entries: Vec<LocalisationEntry>,
     pub has_bom: bool,
-    pub is_legacy_encoding: bool,
+    pub encoding: text_file::Encoding,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ pub fn read(path: &str) -> AppResult<LocalisationFile> {
         language,
         entries,
         has_bom: file.has_bom,
-        is_legacy_encoding: file.is_legacy_encoding,
+        encoding: file.encoding,
     })
 }
 
@@ -68,7 +68,7 @@ pub fn write(path: &str, language: &str, entries: &[LocalisationEntry]) -> AppRe
             path: path.to_string(),
             content: String::new(),
             has_bom: true,
-            is_legacy_encoding: false,
+            encoding: text_file::Encoding::Utf8,
             size_bytes: 0,
         }
     };
@@ -81,9 +81,19 @@ pub fn write(path: &str, language: &str, entries: &[LocalisationEntry]) -> AppRe
         .collect();
 
     let (existing_language, existing_entries) = parse(&existing.content);
-    let known_lines: Vec<usize> = existing_entries.iter().filter_map(|entry| entry.line).collect();
 
-    // Replace the lines that still have an entry, blank out the removed ones.
+    // Index both sides by line: the original so an untouched entry can keep the
+    // exact text it had, trailing comment and spacing included, and the
+    // incoming set so deletions can be spotted.
+    let mut original: Vec<Option<&LocalisationEntry>> = vec![None; lines.len()];
+    for entry in &existing_entries {
+        if let Some(line) = entry.line {
+            if line < original.len() {
+                original[line] = Some(entry);
+            }
+        }
+    }
+
     let mut kept: Vec<Option<&LocalisationEntry>> = vec![None; lines.len()];
     for entry in entries {
         if let Some(line) = entry.line {
@@ -95,13 +105,17 @@ pub fn write(path: &str, language: &str, entries: &[LocalisationEntry]) -> AppRe
 
     let mut rewritten: Vec<String> = Vec::with_capacity(lines.len() + entries.len());
     for (index, line) in lines.drain(..).enumerate() {
-        match (known_lines.contains(&index), kept[index]) {
-            // An entry line that survived the edit.
-            (true, Some(entry)) => rewritten.push(format_entry(entry)),
-            // An entry line the user deleted.
-            (true, None) => {}
+        match (original[index], kept[index]) {
+            // An entry the user actually changed.
+            (Some(before), Some(after)) if !same_entry(before, after) => {
+                rewritten.push(format_entry(after));
+            }
+            // An entry line nobody touched: keep it byte for byte.
+            (Some(_), Some(_)) => rewritten.push(line),
+            // An entry the user deleted.
+            (Some(_), None) => {}
             // A comment, blank line or the language header.
-            (false, _) => rewritten.push(line),
+            (None, _) => rewritten.push(line),
         }
     }
 
@@ -131,8 +145,9 @@ pub fn write(path: &str, language: &str, entries: &[LocalisationEntry]) -> AppRe
         content.push_str(newline);
     }
 
-    // Localisation only loads with a byte order mark, so one is always written.
-    text_file::write(target, &content, true)?;
+    // Localisation is always UTF-8 with a byte order mark, whatever the file
+    // looked like before: without one the game ignores it entirely.
+    text_file::write(target, &content, text_file::Encoding::Utf8, true)?;
 
     read(path)
 }
@@ -223,6 +238,13 @@ fn escape(value: &str) -> String {
 
 fn unescape(value: &str) -> String {
     value.replace("\\\"", "\"").replace("\\\\", "\\")
+}
+
+/// Whether two entries say the same thing, ignoring incidental whitespace.
+fn same_entry(left: &LocalisationEntry, right: &LocalisationEntry) -> bool {
+    left.key.trim() == right.key.trim()
+        && left.version.trim() == right.version.trim()
+        && left.value == right.value
 }
 
 fn format_entry(entry: &LocalisationEntry) -> String {
@@ -330,6 +352,33 @@ mod tests {
 
         assert!(saved.contains("# a comment"));
         assert!(saved.contains("GREETING:0 \"Hi there\""));
+    }
+
+    #[test]
+    fn leaves_untouched_entry_lines_byte_for_byte() {
+        let path = write_temp(
+            "untouched.yml",
+            "l_english:\n GREETING:0 \"Hello\"\n FAREWELL:0 \"Bye\" # translator note\n  SPACED:0    \"Odd spacing\"\n",
+        );
+        let file = read(&path).expect("reads");
+
+        let mut entries = file.entries.clone();
+        entries[0].value = "Hi".to_string();
+        write(&path, &file.language, &entries).expect("writes");
+
+        let saved = std::fs::read_to_string(&path).expect("read back");
+
+        // The edited entry is rebuilt.
+        assert!(saved.contains(" GREETING:0 \"Hi\""));
+        // The others keep their comment and their spacing.
+        assert!(
+            saved.contains(" FAREWELL:0 \"Bye\" # translator note"),
+            "comment lost:\n{saved}"
+        );
+        assert!(
+            saved.contains("  SPACED:0    \"Odd spacing\""),
+            "spacing lost:\n{saved}"
+        );
     }
 
     #[test]

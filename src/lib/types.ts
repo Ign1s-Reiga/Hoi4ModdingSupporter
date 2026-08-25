@@ -7,6 +7,9 @@ export type FileKind = "text" | "image" | "binary";
 
 export type ThemeMode = "system" | "light" | "dark";
 
+/** How a file is stored on disk. Legacy scripts are sometimes Windows-1252. */
+export type Encoding = "utf8" | "windows1252";
+
 export interface ProjectFile {
   fullPath: string;
   /** Path relative to the scan root, always with forward slashes. */
@@ -55,7 +58,7 @@ export interface TextFile {
   path: string;
   content: string;
   hasBom: boolean;
-  isLegacyEncoding: boolean;
+  encoding: Encoding;
   sizeBytes: number;
 }
 
@@ -92,7 +95,7 @@ export interface FocusFile {
   trees: FocusTree[];
   focuses: Focus[];
   hasBom: boolean;
-  isLegacyEncoding: boolean;
+  encoding: Encoding;
 }
 
 export type FocusUpdate = Omit<Focus, "treeId" | "shared" | "line">;
@@ -110,7 +113,7 @@ export interface LocalisationFile {
   language: string;
   entries: LocalisationEntry[];
   hasBom: boolean;
-  isLegacyEncoding: boolean;
+  encoding: Encoding;
 }
 
 export interface LocalisationFileInfo {

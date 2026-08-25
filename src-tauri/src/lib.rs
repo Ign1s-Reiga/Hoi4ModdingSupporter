@@ -88,8 +88,13 @@ fn read_text_file(path: String) -> AppResult<text_file::TextFile> {
 }
 
 #[tauri::command]
-fn write_text_file(path: String, content: String, with_bom: bool) -> AppResult<()> {
-    text_file::write(std::path::Path::new(&path), &content, with_bom)
+fn write_text_file(
+    path: String,
+    content: String,
+    encoding: text_file::Encoding,
+    with_bom: bool,
+) -> AppResult<text_file::Encoding> {
+    text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)
 }
 
 #[tauri::command]

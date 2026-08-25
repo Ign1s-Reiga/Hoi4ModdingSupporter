@@ -9,6 +9,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  Encoding,
   FocusFile,
   FocusUpdate,
   LocalisationEntry,
@@ -59,8 +60,10 @@ export const api = {
 
   readTextFile: (path: string) => call<TextFile>("read_text_file", { path }),
 
-  writeTextFile: (path: string, content: string, withBom: boolean) =>
-    call<void>("write_text_file", { path, content, withBom }),
+  /** Returns the encoding actually written, which can differ when the text no
+   * longer fits the original one. */
+  writeTextFile: (path: string, content: string, encoding: Encoding, withBom: boolean) =>
+    call<Encoding>("write_text_file", { path, content, encoding, withBom }),
 
   readFocusFile: (path: string) => call<FocusFile>("read_focus_file", { path }),
 
