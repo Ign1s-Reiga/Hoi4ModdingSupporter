@@ -1,16 +1,29 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextTypescript from "eslint-config-next/typescript";
+import nextPlugin from "@next/eslint-plugin-next";
+import reactHooks from "eslint-plugin-react-hooks";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
-
+/*
+  The rules are assembled from the individual plugins rather than through
+  `eslint-config-next`'s base config. That config also enables
+  eslint-plugin-import with its TypeScript resolver, whose native binding
+  hangs on Node 26 — dropping it costs only the import-ordering rules, which
+  nothing here relies on.
+*/
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     ignores: ["out/**", ".next/**", "src-tauri/**", "node_modules/**"],
+  },
+  ...nextTypescript,
+  reactHooks.configs.flat.recommended,
+  nextPlugin.configs["core-web-vitals"],
+  {
+    rules: {
+      // Deliberately unused bindings are prefixed with an underscore.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
   },
 ];
 
