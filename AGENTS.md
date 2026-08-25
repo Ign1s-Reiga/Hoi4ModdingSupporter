@@ -2,42 +2,63 @@
 
 ## Project Description
 
-This project is a Support tool for Hearts of Iron IV Modding.
-It provides a user-friendly interface to manage and edit project files, making it easier for modders to create and customize their mods.
-
-## Want to do
-
-- Load a mod project by `*.mod` file.
-- User-friendly interface to edit project files.
-- Easily to access game assets and mod assets.
-- National Focus Editor
-- Event, History, Ideology Manager
-- Original Flag & NF Icon Importer
-- No-Code National Focus Editor
-- Implement Workspace using NavigationItem.MenuItems
-- Use Original Game Asset smoothly
-
-## Code Style
-
-- Follow editorconfig settings.
-
-## Git Strategy
-
-- Commit message format is must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
-- Push to `dev` branch until "Want to do" is completed, then merge to `main` branch.
-- Commit each feature implementation and each fix.
+A support tool for Hearts of Iron IV modding. It loads a mod through its `.mod`
+descriptor and provides editors for scripts, national focus trees, localisation
+and assets, writing changes straight back into the mod folder.
 
 ## Architecture
 
-- WinUI 3
-- CommunityToolkit.Mvvm
-- CommunityToolkit.WinUI.Controls.SettingsControls
-- Fluent Results
+- **Tauri 2** desktop shell, Rust backend (`src-tauri/`).
+- **Next.js 16** App Router frontend, exported statically (`output: "export"`)
+  and served from the Tauri window. Every route must be resolvable at build
+  time — no server-side rendering, no dynamic route params.
+- **Tailwind CSS 4** with shadcn-style copy-in components in
+  `src/components/ui/`.
+- **Zustand** for the small amount of shared client state (settings, open
+  project, file scan).
 
-## Implementation Guidelines
+### Where the work happens
 
-- Use MVVM pattern for separation of concerns.
-- Implement it across multiple sub-agents to improve efficiency.
-- Once the subagent reports that the implementation and modifications are complete, review the code.
-  - If there is any redundancy or cause of bug in the code output by the subagent, send instructions to the subagent to correct it, including examples of how to fix it.
-  - Once the corrections are complete, have the main agent review them and repeat the process until all problems are resolved.
+All file system access, script parsing and writing lives in Rust. The frontend
+never touches the disk directly; it calls typed wrappers in `src/lib/ipc.ts`,
+which are the only place `invoke()` is used.
+
+`src-tauri/src/paradox/` is the core of the tool: a lexer and parser for the
+Clausewitz script format that records the byte range of every node, plus an
+editor that rewrites those ranges. Editing is always surgical — a save must
+leave comments, spacing and unrelated keys exactly as the author wrote them.
+Never re-serialise a whole file to write one field.
+
+Two format rules the game enforces and the code must keep:
+
+- Localisation `.yml` files only load with a UTF-8 BOM, so one is always written.
+- Some older script files are Windows-1252; they are decoded on read and flagged
+  rather than corrupted.
+
+## Code Style
+
+- Follow `.editorconfig` (2 spaces, CRLF; 4 spaces in Rust).
+- Rust: no `unwrap()` on anything that can fail at runtime — return `AppError`.
+- TypeScript: `strict` mode, no `any`. Prefer deriving state over duplicating it.
+- Comments explain why, not what. Skip comments that restate the code.
+
+## Testing
+
+- `pnpm test:rust` — the parser, editor, focus, localisation and settings tests.
+  Any change to parsing or writing needs a test that proves the round trip.
+- `pnpm typecheck` and `pnpm lint` before finishing frontend work.
+
+## Git Strategy
+
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+- Branch names are `<type>/<hyphenated-abstract>`, e.g. `feat/focus-canvas`.
+- One commit per logical change.
+
+## Want to do
+
+- Event, history and ideology editors with the same form-plus-source approach
+  as the focus editor.
+- Flag and focus icon importer that writes the `.dds`/`.tga` and the interface
+  entries together.
+- Cross-file validation: focuses referencing ids that do not exist, localisation
+  keys with no definition.
