@@ -111,12 +111,24 @@ pub fn child_indent(source: &str, block: &Block) -> String {
 }
 
 /// True when nothing but `pair` (and optionally a comment) sits on its line.
+///
+/// Scripts sometimes put several assignments on one line, and deleting the
+/// whole line would take the neighbours with it.
 fn pair_owns_its_line(source: &str, pair: &Pair) -> bool {
     let start = line_start(source, pair.span.start);
-    source[start..pair.span.start]
+    let leading_is_blank = source[start..pair.span.start]
         .chars()
-        .all(|character| character == ' ' || character == '\t')
-        && pair.span.end >= line_end(source, pair.span.end).min(pair.span.end)
+        .all(|character| character == ' ' || character == '\t');
+
+    // A block value can span lines, so measure from where the pair ends.
+    let end = line_end(source, pair.span.end);
+    let trailing = source
+        .get(pair.span.end.min(end)..end)
+        .unwrap_or_default()
+        .trim();
+    let trailing_is_blank = trailing.is_empty() || trailing.starts_with('#');
+
+    leading_is_blank && trailing_is_blank
 }
 
 /// Sets `key = value` inside `block`, inserting the key when it is missing and
@@ -373,6 +385,35 @@ mod tests {
         assert!(result.contains("completion_reward = {"));
         assert!(result.contains("\t\t\tadd_political_power = 120"));
         assert!(result.contains("\t\t\tadd_stability = 0.05"));
+    }
+
+    #[test]
+    fn removing_a_key_keeps_its_line_mates() {
+        let source = "focus = { id = alpha x = 1 y = 2 }\n";
+        let document = parse(source).expect("parses");
+        let block = document
+            .find("focus")
+            .and_then(|focus| focus.value.as_block())
+            .expect("focus block");
+
+        let result = apply_edits(source, set_scalar(source, block, "x", ""));
+
+        assert!(result.contains("id = alpha"));
+        assert!(result.contains("y = 2"));
+        assert!(!result.contains("x = 1"));
+    }
+
+    #[test]
+    fn removing_a_key_that_owns_its_line_drops_the_line() {
+        let result = {
+            let document = parse(SOURCE).expect("parses");
+            let block = focus_block(&document);
+            apply_edits(SOURCE, set_scalar(SOURCE, block, "x", ""))
+        };
+
+        assert!(!result.contains("x = 1"));
+        // No blank line is left where the assignment used to be.
+        assert!(!result.contains("\n\n\t\tcost"));
     }
 
     #[test]

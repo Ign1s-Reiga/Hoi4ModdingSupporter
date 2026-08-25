@@ -6,6 +6,8 @@ import { FileQuestion, Loader2 } from "lucide-react";
 import { api } from "@/lib/ipc";
 import { cn } from "@/lib/utils";
 
+type Loaded = { path: string; url: string | null };
+
 /**
  * A game asset preview that only decodes once it scrolls into view — a `gfx`
  * folder holds thousands of `.dds` files and converting them all up front
@@ -21,38 +23,46 @@ export function AssetThumbnail({
   size?: number;
 }) {
   const host = React.useRef<HTMLDivElement>(null);
-  const [state, setState] = React.useState<"idle" | "loading" | "ready" | "failed">("idle");
-  const [source, setSource] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    setState("idle");
-    setSource(null);
-  }, [path]);
+  const [visible, setVisible] = React.useState<string | null>(null);
+  const [loaded, setLoaded] = React.useState<Loaded | null>(null);
 
   React.useEffect(() => {
     const element = host.current;
-    if (!element || state !== "idle") return;
+    if (!element) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
-
         observer.disconnect();
-        setState("loading");
-        api
-          .readImageDataUrl(path, size * 2)
-          .then((url) => {
-            setSource(url);
-            setState("ready");
-          })
-          .catch(() => setState("failed"));
+        setVisible(path);
       },
       { rootMargin: "200px" },
     );
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [path, size, state]);
+  }, [path]);
+
+  React.useEffect(() => {
+    if (visible !== path) return;
+
+    let cancelled = false;
+    api
+      .readImageDataUrl(path, size * 2)
+      .then((url) => {
+        if (!cancelled) setLoaded({ path, url });
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ path, url: null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [path, size, visible]);
+
+  const result = loaded?.path === path ? loaded : null;
+  const isLoading = visible === path && !result;
 
   return (
     <div
@@ -62,13 +72,13 @@ export function AssetThumbnail({
         className,
       )}
     >
-      {state === "loading" ? (
+      {isLoading ? (
         <Loader2 className="size-4 animate-spin text-border-strong" />
-      ) : state === "failed" ? (
-        <FileQuestion className="size-5 text-border-strong" />
-      ) : source ? (
+      ) : result?.url ? (
         // eslint-disable-next-line @next/next/no-img-element -- data URL produced by the backend
-        <img src={source} alt="" className="max-h-full max-w-full object-contain" />
+        <img src={result.url} alt="" className="max-h-full max-w-full object-contain" />
+      ) : result ? (
+        <FileQuestion className="size-5 text-border-strong" />
       ) : null}
     </div>
   );

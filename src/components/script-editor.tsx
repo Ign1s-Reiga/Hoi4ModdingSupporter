@@ -161,7 +161,13 @@ function extensions(readOnly: boolean): Extension[] {
     editorTheme,
     EditorView.lineWrapping,
     EditorState.readOnly.of(readOnly),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    keymap.of([
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...searchKeymap,
+      ...foldKeymap,
+      indentWithTab,
+    ]),
   ];
 }
 
@@ -184,8 +190,11 @@ export function ScriptEditor({
   // Kept in refs so the editor is never torn down just to see a new callback.
   const changeHandler = React.useRef(onChange);
   const saveHandler = React.useRef(onSave);
-  changeHandler.current = onChange;
-  saveHandler.current = onSave;
+
+  React.useEffect(() => {
+    changeHandler.current = onChange;
+    saveHandler.current = onSave;
+  });
 
   React.useEffect(() => {
     if (!host.current) return;

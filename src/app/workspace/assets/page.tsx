@@ -31,43 +31,52 @@ export default function AssetsPage() {
   const [source, setSource] = React.useState<Source>("mod");
   const [areaId, setAreaId] = React.useState(ASSET_AREAS[0].id);
   const [search, setSearch] = React.useState("");
-  const [gameFiles, setGameFiles] = React.useState<ProjectFile[]>([]);
-  const [isLoadingGame, setIsLoadingGame] = React.useState(false);
-  const [gameTruncated, setGameTruncated] = React.useState(false);
+  const [gameScan, setGameScan] = React.useState<{
+    key: string;
+    files: ProjectFile[];
+    truncated: boolean;
+  } | null>(null);
   const [selected, setSelected] = React.useState<ProjectFile | null>(null);
-  const [preview, setPreview] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<{ path: string; url: string | null } | null>(
+    null,
+  );
 
   const gameRoot = settings?.gameRootPath ?? "";
   const area = ASSET_AREAS.find((entry) => entry.id === areaId) ?? ASSET_AREAS[0];
 
-  // Game folders are scanned per area, on demand.
+  // Game folders are scanned per area, on demand. Each result is kept together
+  // with the folder it came from, so switching areas falls back to the loading
+  // state by itself instead of being reset from an effect.
+  const gameScanKey =
+    source === "game" && gameRoot
+      ? `${gameRoot.replace(/[\\/]+$/, "")}/${area.prefixes[0]}`
+      : null;
+
   React.useEffect(() => {
-    if (source !== "game" || !gameRoot) return;
+    if (!gameScanKey) return;
 
     let cancelled = false;
-    setIsLoadingGame(true);
-    setGameFiles([]);
-
     api
-      .scanDirectory(`${gameRoot.replace(/[\\/]+$/, "")}/${area.prefixes[0]}`)
+      .scanDirectory(gameScanKey)
       .then((result) => {
         if (cancelled) return;
-        setGameFiles(result.files);
-        setGameTruncated(result.truncated);
+        setGameScan({ key: gameScanKey, files: result.files, truncated: result.truncated });
       })
       .catch((error) => {
         if (cancelled) return;
-        setGameFiles([]);
+        setGameScan({ key: gameScanKey, files: [], truncated: false });
         setError(describeError(error));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingGame(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [area, gameRoot, setError, source]);
+  }, [gameScanKey, setError]);
+
+  const currentScan = gameScan?.key === gameScanKey ? gameScan : null;
+  const isLoadingGame = Boolean(gameScanKey) && !currentScan;
+  const gameTruncated = currentScan?.truncated ?? false;
+  const gameFiles = React.useMemo(() => currentScan?.files ?? [], [currentScan]);
 
   const files = React.useMemo(() => {
     const pool =
@@ -87,25 +96,25 @@ export default function AssetsPage() {
   const others = files.filter((file) => file.kind !== "image");
 
   React.useEffect(() => {
-    if (!selected || selected.kind !== "image") {
-      setPreview(null);
-      return;
-    }
+    if (!selected || selected.kind !== "image") return;
 
+    const path = selected.fullPath;
     let cancelled = false;
     api
-      .readImageDataUrl(selected.fullPath, 1024)
+      .readImageDataUrl(path, 1024)
       .then((url) => {
-        if (!cancelled) setPreview(url);
+        if (!cancelled) setPreview({ path, url });
       })
       .catch(() => {
-        if (!cancelled) setPreview(null);
+        if (!cancelled) setPreview({ path, url: null });
       });
 
     return () => {
       cancelled = true;
     };
   }, [selected]);
+
+  const currentPreview = selected && preview?.path === selected.fullPath ? preview : null;
 
   return (
     <div className="grid h-full grid-cols-[13rem_minmax(0,1fr)_18rem] gap-3 p-3">
@@ -239,9 +248,15 @@ export default function AssetsPage() {
             <div className="flex flex-col gap-3">
               {selected.kind === "image" ? (
                 <div className="flex min-h-40 items-center justify-center rounded-md border border-border bg-surface-sunken p-2">
-                  {preview ? (
+                  {currentPreview?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element -- data URL from the backend
-                    <img src={preview} alt="" className="max-h-64 max-w-full object-contain" />
+                    <img
+                      src={currentPreview.url}
+                      alt=""
+                      className="max-h-64 max-w-full object-contain"
+                    />
+                  ) : currentPreview ? (
+                    <span className="text-xs text-muted">Preview not available</span>
                   ) : (
                     <Loader2 className="size-4 animate-spin text-border-strong" />
                   )}

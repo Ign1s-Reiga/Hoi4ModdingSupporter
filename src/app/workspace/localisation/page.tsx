@@ -32,7 +32,12 @@ const ALL_LANGUAGES = "all";
 export default function LocalisationPage() {
   const { project, setError } = useAppStore();
 
-  const [files, setFiles] = React.useState<LocalisationFileInfo[]>([]);
+  // The listing is stored with the folder it belongs to, so a project change
+  // shows the loading state without an effect resetting it first.
+  const [listing, setListing] = React.useState<{
+    folder: string;
+    files: LocalisationFileInfo[];
+  } | null>(null);
   const [language, setLanguage] = React.useState(ALL_LANGUAGES);
   const [selected, setSelected] = React.useState<LocalisationFileInfo | null>(null);
   const [entries, setEntries] = React.useState<LocalisationEntry[]>([]);
@@ -40,10 +45,15 @@ export default function LocalisationPage() {
   const [fileLanguage, setFileLanguage] = React.useState("");
   const [hasBom, setHasBom] = React.useState(true);
   const [search, setSearch] = React.useState("");
-  const [isListing, setIsListing] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
+  const folder = project?.folderPath ?? "";
+  const files = React.useMemo(
+    () => (listing?.folder === folder ? listing.files : []),
+    [folder, listing],
+  );
+  const isListing = Boolean(folder) && listing?.folder !== folder;
   const isDirty = JSON.stringify(entries) !== JSON.stringify(saved);
 
   const languages = React.useMemo(() => {
@@ -67,19 +77,20 @@ export default function LocalisationPage() {
   }, [entries, search]);
 
   const refreshFiles = React.useCallback(async () => {
-    if (!project) return;
+    if (!folder) return;
 
-    setIsListing(true);
     try {
-      setFiles(await api.listLocalisationFiles(project.folderPath));
+      setListing({ folder, files: await api.listLocalisationFiles(folder) });
     } catch (error) {
+      setListing({ folder, files: [] });
       setError(describeError(error));
-    } finally {
-      setIsListing(false);
     }
-  }, [project, setError]);
+  }, [folder, setError]);
 
   React.useEffect(() => {
+    // refreshFiles awaits the backend before it touches state, so nothing is
+    // set synchronously here — the rule cannot see through the async callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshFiles();
   }, [refreshFiles]);
 

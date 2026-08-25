@@ -309,16 +309,18 @@ export default function FocusPage() {
         </PanelBody>
       </Panel>
 
-      <AddFocusDialog
-        open={isAdding}
-        onOpenChange={setIsAdding}
-        file={focusFile}
-        onCreated={(updated, id) => applyFile(updated, id)}
-        onError={(message) => {
-          setError(message);
-          toast.error(message);
-        }}
-      />
+      {/* Mounted only while open so its fields start empty every time. */}
+      {isAdding && focusFile ? (
+        <AddFocusDialog
+          file={focusFile}
+          onOpenChange={setIsAdding}
+          onCreated={(updated, id) => applyFile(updated, id)}
+          onError={(message) => {
+            setError(message);
+            toast.error(message);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -488,31 +490,22 @@ function BlockField({
 }
 
 function AddFocusDialog({
-  open,
   onOpenChange,
   file,
   onCreated,
   onError,
 }: {
-  open: boolean;
   onOpenChange: (open: boolean) => void;
-  file: FocusFile | null;
+  file: FocusFile;
   onCreated: (updated: FocusFile, focusId: string) => void;
   onError: (message: string) => void;
 }) {
   const [id, setId] = React.useState("");
-  const [treeId, setTreeId] = React.useState("");
+  const [treeId, setTreeId] = React.useState(file.trees[0]?.id ?? "");
   const [isSaving, setIsSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    if (open) {
-      setId("");
-      setTreeId(file?.trees[0]?.id ?? "");
-    }
-  }, [file, open]);
-
   async function create() {
-    if (!file || !id.trim()) return;
+    if (!id.trim()) return;
 
     setIsSaving(true);
     try {
@@ -535,7 +528,7 @@ function AddFocusDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
         title="Add a focus"
         description="A stub focus is appended to the tree; fill in the rest on the right."
@@ -549,7 +542,7 @@ function AddFocusDialog({
               onChange={(event) => setId(event.target.value)}
             />
           </Field>
-          {file && file.trees.length > 1 ? (
+          {file.trees.length > 1 ? (
             <Field label="Focus tree">
               <CodeInput value={treeId} onChange={(event) => setTreeId(event.target.value)} />
             </Field>

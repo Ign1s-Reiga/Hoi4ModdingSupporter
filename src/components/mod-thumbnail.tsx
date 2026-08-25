@@ -18,27 +18,29 @@ export function ModThumbnail({
   name: string;
   className?: string;
 }) {
-  const [source, setSource] = React.useState<string | null>(null);
+  // Loaded art is stored with the path it came from, so a changed path shows
+  // the placeholder again without a state reset on every render.
+  const [loaded, setLoaded] = React.useState<{ path: string; url: string } | null>(null);
 
   React.useEffect(() => {
-    let cancelled = false;
-    setSource(null);
-
     if (!path) return;
 
+    let cancelled = false;
     api
       .readImageDataUrl(path, 320)
       .then((url) => {
-        if (!cancelled) setSource(url);
+        if (!cancelled) setLoaded({ path, url });
       })
       .catch(() => {
-        if (!cancelled) setSource(null);
+        // A missing or unreadable thumbnail just falls back to the initials.
       });
 
     return () => {
       cancelled = true;
     };
   }, [path]);
+
+  const source = loaded?.path === path ? loaded.url : null;
 
   if (!source) {
     return (
