@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  The palette is built around the app icon: deep slate plates, warm gold for
+  anything actionable, and a parchment tint in light mode so long editing
+  sessions do not glare.
+*/
+:root {
+  --background: #f4f1ea;
+  --foreground: #1c1f26;
+  --surface: #ffffff;
+  --surface-raised: #fbf9f4;
+  --surface-sunken: #ebe6db;
+  --border: #d8d1c2;
+  --border-strong: #bfb6a3;
+  --muted: #6b6558;
+  --accent: #a9761b;
+  --accent-foreground: #ffffff;
+  --accent-soft: #f0e2c4;
+  --danger: #a5342b;
+  --danger-soft: #f6ded9;
+  --success: #3f6b46;
+  --warning: #8a6416;
+  --ring: #a9761b;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #11151f;
+  --foreground: #e8e6e1;
+  --surface: #171c28;
+  --surface-raised: #1e2532;
+  --surface-sunken: #0d111a;
+  --border: #2a3241;
+  --border-strong: #3b4658;
+  --muted: #8d97a8;
+  --accent: #e8b44a;
+  --accent-foreground: #17130a;
+  --accent-soft: #2e2717;
+  --danger: #e07a6a;
+  --danger-soft: #331d1a;
+  --success: #7fb489;
+  --warning: #d9a441;
+  --ring: #e8b44a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  --font-sans: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, 'Noto Sans JP', sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    /* A desktop shell scrolls in panes, never as a whole page. */
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The window chrome is the app, so stray text selection just looks broken. */
+  body {
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable],
+  [data-selectable] {
+    user-select: text;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Shared treatment for the script and localisation editors. */
+  .code-surface {
+    background-color: var(--surface-sunken);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+  }
+}
