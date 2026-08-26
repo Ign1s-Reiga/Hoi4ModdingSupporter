@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { FileQuestion, Loader2 } from "lucide-react";
+import * as React from 'react';
+import { FileQuestion, Loader2 } from 'lucide-react';
 
-import { api } from "@/lib/ipc";
-import { cn } from "@/lib/utils";
+import { api } from '@/lib/ipc';
+import { cn } from '@/lib/utils';
 
 type Loaded = { path: string; url: string | null };
 
@@ -13,15 +13,7 @@ type Loaded = { path: string; url: string | null };
  * folder holds thousands of `.dds` files and converting them all up front
  * would lock the window.
  */
-export function AssetThumbnail({
-  path,
-  className,
-  size = 128,
-}: {
-  path: string;
-  className?: string;
-  size?: number;
-}) {
+export function AssetThumbnail({ path, className, size = 128 }: { path: string; className?: string; size?: number }) {
   const host = React.useRef<HTMLDivElement>(null);
   const [visible, setVisible] = React.useState<string | null>(null);
   const [loaded, setLoaded] = React.useState<Loaded | null>(null);
@@ -36,7 +28,7 @@ export function AssetThumbnail({
         observer.disconnect();
         setVisible(path);
       },
-      { rootMargin: "200px" },
+      { rootMargin: '200px' },
     );
 
     observer.observe(element);
@@ -65,20 +57,15 @@ export function AssetThumbnail({
   const isLoading = visible === path && !result;
 
   return (
-    <div
-      ref={host}
-      className={cn(
-        "flex items-center justify-center overflow-hidden bg-surface-sunken",
-        className,
-      )}
-    >
+    <div ref={host} className={cn('flex items-center justify-center overflow-hidden bg-surface-sunken', className)}>
       {isLoading ? (
-        <Loader2 className="size-4 animate-spin text-border-strong" />
+        <Loader2 className='size-4 animate-spin text-border-strong' />
       ) : result?.url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- data URL produced by the backend
-        <img src={result.url} alt="" className="max-h-full max-w-full object-contain" />
+        // Data URL produced by the backend, so next/image cannot help here.
+        // oxlint-disable-next-line next/no-img-element
+        <img src={result.url} alt='' className='max-h-full max-w-full object-contain' />
       ) : result ? (
-        <FileQuestion className="size-5 text-border-strong" />
+        <FileQuestion className='size-5 text-border-strong' />
       ) : null}
     </div>
   );

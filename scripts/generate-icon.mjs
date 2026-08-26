@@ -9,18 +9,13 @@
  *   pnpm tauri icon assets/app-icon.png
  */
 
-import { deflateSync, crc32 as zlibCrc32 } from "node:zlib";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { deflateSync, crc32 as zlibCrc32 } from 'node:zlib';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SIZE = 1024;
-const OUTPUT = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "assets",
-  "app-icon.png",
-);
+const OUTPUT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'app-icon.png');
 
 const BACKGROUND_TOP = [32, 42, 61];
 const BACKGROUND_BOTTOM = [17, 22, 33];
@@ -64,13 +59,9 @@ function blend(target, offset, colour, alpha) {
   if (alpha <= 0) return;
   for (let channel = 0; channel < 3; channel += 1) {
     const existing = target[offset + channel];
-    target[offset + channel] = Math.round(
-      existing * (1 - alpha) + colour[channel] * alpha,
-    );
+    target[offset + channel] = Math.round(existing * (1 - alpha) + colour[channel] * alpha);
   }
-  target[offset + 3] = Math.round(
-    target[offset + 3] * (1 - alpha) + 255 * alpha,
-  );
+  target[offset + 3] = Math.round(target[offset + 3] * (1 - alpha) + 255 * alpha);
 }
 
 function render() {
@@ -127,7 +118,7 @@ function chunk(type, data) {
   const length = Buffer.alloc(4);
   length.writeUInt32BE(data.length, 0);
 
-  const payload = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const payload = Buffer.concat([Buffer.from(type, 'ascii'), data]);
   const checksum = Buffer.alloc(4);
   checksum.writeUInt32BE(zlibCrc32(payload) >>> 0, 0);
 
@@ -149,17 +140,14 @@ function encodePng(pixels) {
   const raw = Buffer.alloc((stride + 1) * SIZE);
   for (let y = 0; y < SIZE; y += 1) {
     raw[y * (stride + 1)] = 0;
-    Buffer.from(pixels.buffer, y * stride, stride).copy(
-      raw,
-      y * (stride + 1) + 1,
-    );
+    Buffer.from(pixels.buffer, y * stride, stride).copy(raw, y * (stride + 1) + 1);
   }
 
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", header),
-    chunk("IDAT", deflateSync(raw, { level: 9 })),
-    chunk("IEND", Buffer.alloc(0)),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(raw, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0)),
   ]);
 }
 

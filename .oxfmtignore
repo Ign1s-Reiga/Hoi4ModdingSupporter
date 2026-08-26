@@ -1,0 +1,6 @@
+# Rewritten by their own tooling, so formatting them only creates churn.
+package.json
+tsconfig.json
+
+# Rust and Tauri configuration.
+src-tauri/

@@ -1,4 +1,4 @@
-import type { Focus } from "./types";
+import type { Focus } from './types';
 
 /** Grid spacing of the canvas, roughly matching how the game lays a tree out. */
 export const CELL_WIDTH = 124;
