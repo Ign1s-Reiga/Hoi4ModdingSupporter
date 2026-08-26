@@ -25,9 +25,7 @@ impl Span {
     }
 
     pub fn text<'a>(&self, source: &'a str) -> &'a str {
-        source
-            .get(self.start..self.end)
-            .unwrap_or_default()
+        source.get(self.start..self.end).unwrap_or_default()
     }
 }
 

@@ -16,7 +16,15 @@ const TEXT_EXTENSIONS: &[&str] = &[
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "gif", "tga", "dds"];
 
-const SKIPPED_DIRECTORIES: &[&str] = &[".git", ".vs", ".idea", "node_modules", "target", "bin", "obj"];
+const SKIPPED_DIRECTORIES: &[&str] = &[
+    ".git",
+    ".vs",
+    ".idea",
+    "node_modules",
+    "target",
+    "bin",
+    "obj",
+];
 
 /// Top level folders a mod can override, in the order the workspace shows them.
 pub const ASSET_AREAS: &[(&str, &str)] = &[
@@ -81,9 +89,7 @@ pub fn read_descriptor(mod_file_path: &str) -> AppResult<ModProject> {
     let path = Path::new(mod_file_path);
 
     if !path.is_file() {
-        return Err(AppError::message(format!(
-            "{mod_file_path} does not exist"
-        )));
+        return Err(AppError::message(format!("{mod_file_path} does not exist")));
     }
 
     let file = text_file::read(path)?;
@@ -314,7 +320,8 @@ mod tests {
 
     #[test]
     fn resolves_a_descriptor_path_relative_to_the_user_directory() {
-        let descriptor_directory = Path::new("C:/Users/x/Documents/Paradox Interactive/Hearts of Iron IV/mod");
+        let descriptor_directory =
+            Path::new("C:/Users/x/Documents/Paradox Interactive/Hearts of Iron IV/mod");
         let folder = resolve_project_folder(descriptor_directory, "mod/my_mod");
 
         assert_eq!(

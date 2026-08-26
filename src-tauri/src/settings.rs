@@ -103,9 +103,7 @@ fn paths_match(left: &str, right: &str) -> bool {
 }
 
 fn normalise(path: &str) -> String {
-    path.replace('\\', "/")
-        .trim_end_matches('/')
-        .to_lowercase()
+    path.replace('\\', "/").trim_end_matches('/').to_lowercase()
 }
 
 pub fn now_ms() -> u64 {
