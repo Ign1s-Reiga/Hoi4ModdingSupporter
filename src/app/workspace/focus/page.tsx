@@ -12,6 +12,7 @@ import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/com
 import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useUnsavedIn } from '@/lib/use-unsaved';
 import { emptyFocusUpdate, toFocusUpdate, type FocusFile, type FocusUpdate, type ProjectFile } from '@/lib/types';
 import { isInFolder } from '@/lib/utils';
 
@@ -28,11 +29,17 @@ export default function FocusPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isAdding, setIsAdding] = React.useState(false);
+  // Counts open requests so a slower read can tell it has been superseded.
+  // A path would not be enough: opening A, then B, then A again would let the
+  // first read pass while the third is still in flight.
+  const openRequest = React.useRef(0);
 
   const files = React.useMemo(
     () => (scan?.files ?? []).filter((file) => isInFolder(file.relativePath, FOCUS_FOLDER) && file.extension === 'txt'),
     [scan],
   );
+
+  useUnsavedIn('focus editor', isDirty);
 
   const focuses = focusFile?.focuses ?? [];
   const selected = focuses.find((focus) => focus.id === selectedId) ?? null;
@@ -40,19 +47,24 @@ export default function FocusPage() {
   async function openFile(file: ProjectFile) {
     if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
 
+    // A slower read must not replace the focuses of the file opened after it.
+    const request = ++openRequest.current;
     setSelectedFile(file);
     setIsLoading(true);
     try {
       const loaded = await api.readFocusFile(file.fullPath);
+      if (openRequest.current !== request) return;
+
       applyFile(loaded, loaded.focuses[0]?.id ?? null);
     } catch (error) {
-      const message = describeError(error);
-      setError(message);
+      if (openRequest.current !== request) return;
+
+      setError(describeError(error));
       setFocusFile(null);
       setSelectedId(null);
       setDraft(null);
     } finally {
-      setIsLoading(false);
+      if (openRequest.current === request) setIsLoading(false);
     }
   }
 

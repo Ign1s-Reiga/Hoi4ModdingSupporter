@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertCircle,
   FolderTree,
@@ -18,6 +18,7 @@ import {
 import { Toaster } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { confirmDiscard } from '@/lib/dialogs';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +37,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/workspace/localisation', label: 'Localisation', icon: Languages, needsProject: true },
   { href: '/workspace/assets', label: 'Assets', icon: Images, needsProject: true },
 ];
+
+/** Compares route paths regardless of a trailing slash. */
+function samePath(left: string, right: string): boolean {
+  return left.replace(/\/+$/, '') === right.replace(/\/+$/, '');
+}
 
 /** Keeps the document theme in step with the saved setting. */
 function useThemeClass(theme: string | undefined) {
@@ -58,13 +64,37 @@ function useThemeClass(theme: string | undefined) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { settings, project, scan, isScanning, error, initialise, refreshScan, closeProject, setError } = useAppStore();
+  const router = useRouter();
+  const { settings, project, scan, isScanning, error, unsavedIn, initialise, refreshScan, closeProject, setError } =
+    useAppStore();
 
   useThemeClass(settings?.theme);
 
   React.useEffect(() => {
     void initialise();
   }, [initialise]);
+
+  /**
+   * Leaving a workspace page unmounts it and takes its draft with it, so the
+   * shell asks first. Returns false when the user decides to stay.
+   */
+  const confirmLeaving = React.useCallback(async () => {
+    if (!unsavedIn) return true;
+
+    // The marker is left alone: useUnsavedIn clears it when the page it
+    // belongs to unmounts. Clearing it here would drop the guard for a
+    // navigation that turned out to keep the page mounted after all.
+    return confirmDiscard(`Discard unsaved changes in the ${unsavedIn}?`);
+  }, [unsavedIn]);
+
+  const navigate = React.useCallback(
+    async (href: string) => {
+      // Re-clicking the section already open tears nothing down.
+      if (samePath(href, pathname)) return;
+      if (await confirmLeaving()) router.push(href);
+    },
+    [confirmLeaving, pathname, router],
+  );
 
   return (
     <div className='flex h-screen w-screen overflow-hidden bg-background'>
@@ -81,6 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               item={item}
               active={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
               disabled={Boolean(item.needsProject) && !project}
+              onNavigate={navigate}
             />
           ))}
         </div>
@@ -89,6 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavLink
             item={{ href: '/settings', label: 'Settings', icon: SettingsIcon }}
             active={pathname.startsWith('/settings')}
+            onNavigate={navigate}
           />
         </div>
       </nav>
@@ -111,7 +143,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <RefreshCw className={cn(isScanning && 'animate-spin')} />
                 </Button>
-                <Button variant='ghost' size='icon-sm' onClick={closeProject} title='Close project'>
+                <Button
+                  variant='ghost'
+                  size='icon-sm'
+                  onClick={() => {
+                    void confirmLeaving().then((leave) => {
+                      if (leave) closeProject();
+                    });
+                  }}
+                  title='Close project'
+                >
                   <X />
                 </Button>
               </div>
@@ -166,7 +207,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function NavLink({ item, active, disabled }: { item: NavItem; active: boolean; disabled?: boolean }) {
+function NavLink({
+  item,
+  active,
+  disabled,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  disabled?: boolean;
+  onNavigate: (href: string) => Promise<void>;
+}) {
   const Icon = item.icon;
   const className = cn(
     'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors',
@@ -184,7 +235,21 @@ function NavLink({ item, active, disabled }: { item: NavItem; active: boolean; d
   }
 
   return (
-    <Link href={item.href} className={className}>
+    <Link
+      href={item.href}
+      className={className}
+      onClick={(event) => {
+        // Asking about unsaved work is asynchronous, so the navigation is
+        // taken over here rather than left to the router.
+        //
+        // Modified clicks are taken over as well, deliberately. In a browser
+        // Ctrl or Shift click would open a tab or window; this is a single
+        // window desktop shell with neither, and letting those through would
+        // only produce a navigation that skips the discard prompt.
+        event.preventDefault();
+        void onNavigate(item.href);
+      }}
+    >
       <Icon className='size-4' />
       {item.label}
     </Link>
