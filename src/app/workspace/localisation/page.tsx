@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useUnsavedIn } from '@/lib/use-unsaved';
 import type { LocalisationEntry, LocalisationFileInfo } from '@/lib/types';
 
 const MAX_ROWS = 300;
@@ -34,11 +35,15 @@ export default function LocalisationPage() {
   const [search, setSearch] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  // The file the newest open request was for, so slower reads can be ignored.
+  const openRequest = React.useRef<string | null>(null);
 
   const folder = project?.folderPath ?? '';
   const files = React.useMemo(() => (listing?.folder === folder ? listing.files : []), [folder, listing]);
   const isListing = Boolean(folder) && listing?.folder !== folder;
   const isDirty = JSON.stringify(entries) !== JSON.stringify(saved);
+
+  useUnsavedIn('localisation editor', isDirty);
 
   const languages = React.useMemo(() => {
     const found = new Set(files.map((file) => file.language).filter(Boolean));
@@ -79,19 +84,24 @@ export default function LocalisationPage() {
   async function openFile(file: LocalisationFileInfo) {
     if (isDirty && !(await confirmDiscard('Discard unsaved localisation changes?'))) return;
 
+    // A slower read must not replace the entries of the file opened after it.
+    openRequest.current = file.path;
     setSelected(file);
     setIsLoading(true);
     try {
       const loaded = await api.readLocalisationFile(file.path);
+      if (openRequest.current !== file.path) return;
+
       setEntries(loaded.entries);
       setSaved(loaded.entries);
       setFileLanguage(loaded.language);
       setHasBom(loaded.hasBom);
     } catch (error) {
+      if (openRequest.current !== file.path) return;
       setError(describeError(error));
       setSelected(null);
     } finally {
-      setIsLoading(false);
+      if (openRequest.current === file.path) setIsLoading(false);
     }
   }
 

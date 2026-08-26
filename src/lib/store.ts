@@ -16,6 +16,12 @@ interface AppState {
   /** Set while the app restores the previous session on first paint. */
   isRestoring: boolean;
   error: string | null;
+  /**
+   * What the open workspace would lose if it were left right now, e.g.
+   * `focus editor`. Null when nothing is unsaved. Pages report their own
+   * state here so the shell can guard navigation.
+   */
+  unsavedIn: string | null;
 
   initialise: () => Promise<void>;
   setTheme: (theme: ThemeMode) => Promise<void>;
@@ -25,6 +31,7 @@ interface AppState {
   refreshScan: () => Promise<void>;
   forgetRecent: (folderPath: string) => Promise<void>;
   setError: (message: string | null) => void;
+  setUnsavedIn: (label: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -34,6 +41,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isScanning: false,
   isRestoring: true,
   error: null,
+  unsavedIn: null,
 
   async initialise() {
     try {
@@ -83,7 +91,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const project = await api.openModProject(modFilePath);
       window.localStorage.setItem(LAST_PROJECT_KEY, project.modFilePath);
 
-      set({ project, scan: null, error: null });
+      set({ project, scan: null, error: null, unsavedIn: null });
       void get().refreshScan();
 
       // The command also refreshes the recent list on disk.
@@ -97,21 +105,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   closeProject() {
     window.localStorage.removeItem(LAST_PROJECT_KEY);
-    set({ project: null, scan: null });
+    set({ project: null, scan: null, unsavedIn: null });
   },
 
   async refreshScan() {
-    const project = get().project;
-    if (!project) return;
+    const folder = get().project?.folderPath;
+    if (!folder) return;
+
+    // A scan of a big mod outlives a quick close-and-open, and the result
+    // carries absolute paths. Landing one against a different project would
+    // point the editors at files from the mod that is no longer open.
+    const isCurrent = () => get().project?.folderPath === folder;
 
     set({ isScanning: true });
     try {
-      const scan = await api.scanProjectFiles(project.folderPath);
-      set({ scan, error: null });
+      const scan = await api.scanProjectFiles(folder);
+      if (isCurrent()) set({ scan, error: null });
     } catch (error) {
-      set({ error: describeError(error) });
+      if (isCurrent()) set({ error: describeError(error) });
     } finally {
-      set({ isScanning: false });
+      if (isCurrent()) set({ isScanning: false });
     }
   },
 
@@ -125,5 +138,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setError(message) {
     set({ error: message });
+  },
+
+  setUnsavedIn(label) {
+    set({ unsavedIn: label });
   },
 }));
