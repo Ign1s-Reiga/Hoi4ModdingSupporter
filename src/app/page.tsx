@@ -8,14 +8,16 @@ import { FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { ModThumbnail } from '@/components/mod-thumbnail';
 import { Button } from '@/components/ui/button';
 import { Badge, EmptyState } from '@/components/ui/panel';
-import { describeError, isDesktop } from '@/lib/ipc';
+import { describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useIsDesktop } from '@/lib/use-desktop';
 import { formatTimestamp } from '@/lib/utils';
 
 export default function HomePage() {
   const router = useRouter();
   const { settings, isRestoring, openProject, forgetRecent, setError } = useAppStore();
   const [isOpening, setIsOpening] = React.useState(false);
+  const isDesktopWindow = useIsDesktop();
 
   const recents = settings?.recentProjects ?? [];
 
@@ -44,7 +46,7 @@ export default function HomePage() {
     if (project) router.push('/workspace/scripts');
   }
 
-  if (!isDesktop()) {
+  if (!isDesktopWindow) {
     return (
       <EmptyState
         title='Desktop window required'

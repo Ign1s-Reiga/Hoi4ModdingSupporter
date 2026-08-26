@@ -8,8 +8,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form';
 import { Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
-import { api, describeError, isDesktop } from '@/lib/ipc';
+import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useIsDesktop } from '@/lib/use-desktop';
 import type { ThemeMode } from '@/lib/types';
 
 const THEMES: Array<{
@@ -24,9 +25,10 @@ const THEMES: Array<{
 
 export default function SettingsPage() {
   const { settings, setTheme } = useAppStore();
+  const isDesktopWindow = useIsDesktop();
   const savedGameRoot = settings?.gameRootPath ?? '';
 
-  if (!isDesktop()) {
+  if (!isDesktopWindow) {
     return (
       <div className='p-8 text-sm text-muted'>
         Settings are stored by the desktop backend. Start the app with <code>pnpm desktop</code>.
