@@ -41,14 +41,16 @@ pnpm desktop
 it. Opening `http://localhost:3000` in a normal browser shows the UI but no
 backend commands are available there.
 
-| Command | What it does |
-| --- | --- |
-| `pnpm desktop` | Run the app in development |
-| `pnpm desktop:build` | Build a release bundle (NSIS installer on Windows) |
-| `pnpm test:rust` | Run the backend test suite |
-| `pnpm typecheck` | Type-check the frontend |
-| `pnpm lint` | Lint the frontend |
-| `node scripts/generate-icon.mjs` | Redraw `assets/app-icon.png` |
+| Command                          | What it does                                       |
+| -------------------------------- | -------------------------------------------------- |
+| `pnpm desktop`                   | Run the app in development                         |
+| `pnpm desktop:build`             | Build a release bundle (NSIS installer on Windows) |
+| `pnpm test:rust`                 | Run the backend test suite                         |
+| `pnpm typecheck`                 | Type-check the frontend                            |
+| `pnpm lint`                      | Lint the frontend with oxlint, applying fixes      |
+| `pnpm fmt`                       | Format the frontend with oxfmt                     |
+| `pnpm fmt:check`                 | Check formatting without writing                   |
+| `node scripts/generate-icon.mjs` | Redraw `assets/app-icon.png`                       |
 
 ## Layout
 

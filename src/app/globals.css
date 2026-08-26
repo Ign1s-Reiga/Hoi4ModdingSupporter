@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -70,10 +70,8 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
 
-  --font-sans: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system,
-    "Noto Sans JP", sans-serif;
-  --font-mono: "Cascadia Code", "JetBrains Mono", "Consolas", ui-monospace,
-    monospace;
+  --font-sans: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, 'Noto Sans JP', sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
 }
 
 @layer base {

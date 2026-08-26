@@ -58,13 +58,21 @@ did not change are still copied through untouched.
 
 - `pnpm test:rust` — the parser, editor, focus, localisation, settings and
   asset tests. Any change to parsing or writing needs a test that proves the
-  round trip, including what the save must *not* disturb.
-- `pnpm typecheck` and `pnpm lint` before finishing frontend work.
+  round trip, including what the save must _not_ disturb.
+- `pnpm typecheck`, `pnpm lint` and `pnpm fmt` before finishing frontend work.
 - `pnpm desktop` runs the app; `pnpm desktop:build` produces a bundle.
 
-ESLint deliberately does not use the `eslint-config-next` base config: it loads
-eslint-plugin-import with a TypeScript resolver whose native binding hangs on
-Node 26. Rules come from the TypeScript, React hooks and Next plugins directly.
+Linting is [oxlint](https://oxc.rs) and formatting is oxfmt, configured in
+`oxlint.config.ts` and `oxfmt.config.ts`. Two things to know:
+
+- Suppressions use `oxlint-disable-next-line <plugin>/<rule>`, with the rule
+  name exactly as the diagnostic prints it (`next/no-img-element`,
+  `react-hooks/exhaustive-deps`, `react/set-state-in-effect`). oxlint also
+  honours `eslint-disable` comments, so a stale one keeps working silently —
+  which makes it easy to delete one and not notice what it was holding back.
+- Passing glob patterns to oxfmt alongside a directory filters the directory
+  walk, so `oxfmt src "*.ts"` silently skips every `.tsx` file. The scripts
+  pass paths only, and `.oxfmtignore` carves out what other tools own.
 
 ## Git Strategy
 

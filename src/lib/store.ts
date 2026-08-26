@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { create } from "zustand";
+import { create } from 'zustand';
 
-import { api, describeError } from "./ipc";
-import type { ModProject, ScanResult, Settings, ThemeMode } from "./types";
+import { api, describeError } from './ipc';
+import type { ModProject, ScanResult, Settings, ThemeMode } from './types';
 
 /** Lets a reload land back in the workspace the user was in. */
-const LAST_PROJECT_KEY = "hoi4ms.last-project";
+const LAST_PROJECT_KEY = 'hoi4ms.last-project';
 
 interface AppState {
   settings: Settings | null;
@@ -40,8 +40,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const settings = await api.loadSettings();
       set({ settings });
 
-      const remembered =
-        typeof window === "undefined" ? null : window.localStorage.getItem(LAST_PROJECT_KEY);
+      const remembered = typeof window === 'undefined' ? null : window.localStorage.getItem(LAST_PROJECT_KEY);
 
       if (remembered) {
         // A remembered project may have been moved or deleted between runs,

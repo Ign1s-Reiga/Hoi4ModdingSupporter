@@ -3,12 +3,12 @@
  * in step with `src-tauri/src` — everything crosses the bridge as camelCase.
  */
 
-export type FileKind = "text" | "image" | "binary";
+export type FileKind = 'text' | 'image' | 'binary';
 
-export type ThemeMode = "system" | "light" | "dark";
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 /** How a file is stored on disk. Legacy scripts are sometimes Windows-1252. */
-export type Encoding = "utf8" | "windows1252";
+export type Encoding = 'utf8' | 'windows1252';
 
 export interface ProjectFile {
   fullPath: string;
@@ -98,7 +98,7 @@ export interface FocusFile {
   encoding: Encoding;
 }
 
-export type FocusUpdate = Omit<Focus, "treeId" | "shared" | "line">;
+export type FocusUpdate = Omit<Focus, 'treeId' | 'shared' | 'line'>;
 
 export interface LocalisationEntry {
   key: string;
@@ -127,23 +127,37 @@ export interface LocalisationFileInfo {
 /** The editable fields of a focus, with everything blank. */
 export function emptyFocusUpdate(): FocusUpdate {
   return {
-    id: "",
-    icon: "",
-    x: "",
-    y: "",
-    cost: "",
-    relativePositionId: "",
+    id: '',
+    icon: '',
+    x: '',
+    y: '',
+    cost: '',
+    relativePositionId: '',
     prerequisites: [],
     mutuallyExclusive: [],
-    available: "",
-    bypass: "",
-    allowBranch: "",
-    completionReward: "",
-    aiWillDo: "",
+    available: '',
+    bypass: '',
+    allowBranch: '',
+    completionReward: '',
+    aiWillDo: '',
   };
 }
 
+/** The editable fields of an existing focus, without its source position. */
 export function toFocusUpdate(focus: Focus): FocusUpdate {
-  const { treeId: _treeId, shared: _shared, line: _line, ...editable } = focus;
-  return editable;
+  return {
+    id: focus.id,
+    icon: focus.icon,
+    x: focus.x,
+    y: focus.y,
+    cost: focus.cost,
+    relativePositionId: focus.relativePositionId,
+    prerequisites: focus.prerequisites,
+    mutuallyExclusive: focus.mutuallyExclusive,
+    available: focus.available,
+    bypass: focus.bypass,
+    allowBranch: focus.allowBranch,
+    completionReward: focus.completionReward,
+    aiWillDo: focus.aiWillDo,
+  };
 }

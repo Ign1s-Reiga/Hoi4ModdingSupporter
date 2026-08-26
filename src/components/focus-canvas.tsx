@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
 
 import {
   boundsOf,
@@ -12,9 +12,9 @@ import {
   NODE_WIDTH,
   nodeOrigin,
   type Placement,
-} from "@/lib/focus-layout";
-import type { Focus } from "@/lib/types";
-import { cn } from "@/lib/utils";
+} from '@/lib/focus-layout';
+import type { Focus } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface FocusCanvasProps {
   focuses: Focus[];
@@ -53,7 +53,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
   function startPan(event: React.PointerEvent) {
     if (event.button !== 0 && event.button !== 1) return;
     // A left drag that starts on a node moves the node instead of the canvas.
-    if (event.button === 0 && (event.target as HTMLElement).closest("[data-focus-node]")) {
+    if (event.button === 0 && (event.target as HTMLElement).closest('[data-focus-node]')) {
       return;
     }
 
@@ -69,12 +69,12 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
       });
     };
     const end = () => {
-      element.removeEventListener("pointermove", move);
-      element.removeEventListener("pointerup", end);
+      element.removeEventListener('pointermove', move);
+      element.removeEventListener('pointerup', end);
     };
 
-    element.addEventListener("pointermove", move);
-    element.addEventListener("pointerup", end);
+    element.addEventListener('pointermove', move);
+    element.addEventListener('pointerup', end);
   }
 
   function startDrag(event: React.PointerEvent, focus: Focus) {
@@ -99,22 +99,20 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
     };
 
     const end = () => {
-      element.removeEventListener("pointermove", move);
-      element.removeEventListener("pointerup", end);
+      element.removeEventListener('pointermove', move);
+      element.removeEventListener('pointerup', end);
       setDrag(null);
 
       if (latest.x !== placement.x || latest.y !== placement.y) {
         // The stored value is relative when the focus is anchored to another.
-        const anchor = focus.relativePositionId.trim()
-          ? placements.get(focus.relativePositionId.trim())
-          : undefined;
+        const anchor = focus.relativePositionId.trim() ? placements.get(focus.relativePositionId.trim()) : undefined;
         const offset = anchor ?? { x: 0, y: 0 };
         onMove(focus.id, latest.x - offset.x, latest.y - offset.y);
       }
     };
 
-    element.addEventListener("pointermove", move);
-    element.addEventListener("pointerup", end);
+    element.addEventListener('pointermove', move);
+    element.addEventListener('pointerup', end);
   }
 
   function onWheel(event: React.WheelEvent) {
@@ -124,7 +122,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
   }
 
   const edges = React.useMemo(() => {
-    const lines: Array<{ key: string; path: string; kind: "prerequisite" | "exclusive" }> = [];
+    const lines: Array<{ key: string; path: string; kind: 'prerequisite' | 'exclusive' }> = [];
 
     for (const focus of focuses) {
       const target = effective(focus);
@@ -145,7 +143,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
           lines.push({
             key: `${prerequisiteId}->${focus.id}`,
             path: `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`,
-            kind: "prerequisite",
+            kind: 'prerequisite',
           });
         }
       }
@@ -158,7 +156,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
         lines.push({
           key: `${focus.id}<->${exclusiveId}`,
           path: `M ${targetOrigin.left + NODE_WIDTH} ${targetOrigin.top + NODE_HEIGHT / 2} L ${otherOrigin.left} ${otherOrigin.top + NODE_HEIGHT / 2}`,
-          kind: "exclusive",
+          kind: 'exclusive',
         });
       }
     }
@@ -167,34 +165,30 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
   }, [bounds, effective, focuses]);
 
   return (
-    <div className="relative h-full overflow-hidden bg-surface-sunken">
+    <div className='relative h-full overflow-hidden bg-surface-sunken'>
       <div
         ref={viewport}
-        className="h-full w-full cursor-grab active:cursor-grabbing"
+        className='h-full w-full cursor-grab active:cursor-grabbing'
         onPointerDown={startPan}
         onWheel={onWheel}
       >
         <div
-          className="relative origin-top-left"
+          className='relative origin-top-left'
           style={{
             width: size.width,
             height: size.height,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           }}
         >
-          <svg
-            className="pointer-events-none absolute inset-0"
-            width={size.width}
-            height={size.height}
-          >
+          <svg className='pointer-events-none absolute inset-0' width={size.width} height={size.height}>
             {edges.map((edge) => (
               <path
                 key={edge.key}
                 d={edge.path}
-                fill="none"
-                stroke={edge.kind === "exclusive" ? "var(--danger)" : "var(--border-strong)"}
-                strokeWidth={edge.kind === "exclusive" ? 1.5 : 2}
-                strokeDasharray={edge.kind === "exclusive" ? "5 4" : undefined}
+                fill='none'
+                stroke={edge.kind === 'exclusive' ? 'var(--danger)' : 'var(--border-strong)'}
+                strokeWidth={edge.kind === 'exclusive' ? 1.5 : 2}
+                strokeDasharray={edge.kind === 'exclusive' ? '5 4' : undefined}
               />
             ))}
           </svg>
@@ -206,15 +200,15 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
             return (
               <button
                 key={focus.id}
-                type="button"
+                type='button'
                 data-focus-node
                 onPointerDown={(event) => startDrag(event, focus)}
                 onClick={() => onSelect(focus.id)}
                 className={cn(
-                  "absolute flex flex-col justify-center gap-0.5 rounded-md border px-2 text-left transition-colors",
+                  'absolute flex flex-col justify-center gap-0.5 rounded-md border px-2 text-left transition-colors',
                   isSelected
-                    ? "border-accent bg-accent-soft shadow-[0_0_0_1px_var(--accent)]"
-                    : "border-border bg-surface hover:border-border-strong",
+                    ? 'border-accent bg-accent-soft shadow-[0_0_0_1px_var(--accent)]'
+                    : 'border-border bg-surface hover:border-border-strong',
                 )}
                 style={{
                   left: origin.left,
@@ -224,12 +218,12 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
                 }}
                 title={focus.id}
               >
-                <span className="truncate font-mono text-[0.6875rem] leading-tight text-foreground">
-                  {focus.id || "(no id)"}
+                <span className='truncate font-mono text-[0.6875rem] leading-tight text-foreground'>
+                  {focus.id || '(no id)'}
                 </span>
-                <span className="truncate text-[0.625rem] text-muted">
-                  {focus.cost ? `${focus.cost} days` : "no cost"}
-                  {focus.shared ? " · shared" : ""}
+                <span className='truncate text-[0.625rem] text-muted'>
+                  {focus.cost ? `${focus.cost} days` : 'no cost'}
+                  {focus.shared ? ' · shared' : ''}
                 </span>
               </button>
             );
@@ -237,14 +231,14 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-surface/85 px-2 py-1 text-[0.6875rem] text-muted">
+      <div className='pointer-events-none absolute bottom-2 left-2 rounded-md bg-surface/85 px-2 py-1 text-[0.6875rem] text-muted'>
         Drag a focus to move it · Ctrl + wheel to zoom · drag the background to pan
       </div>
-      <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-border bg-surface/85 px-1.5 py-1 text-[0.6875rem] text-muted">
+      <div className='absolute right-2 top-2 flex items-center gap-1 rounded-md border border-border bg-surface/85 px-1.5 py-1 text-[0.6875rem] text-muted'>
         {Math.round(zoom * 100)}%
         <button
-          type="button"
-          className="ml-1 rounded px-1 hover:bg-surface-raised hover:text-foreground"
+          type='button'
+          className='ml-1 rounded px-1 hover:bg-surface-raised hover:text-foreground'
           onClick={() => {
             setZoom(0.85);
             setPan({ x: 24, y: 24 });

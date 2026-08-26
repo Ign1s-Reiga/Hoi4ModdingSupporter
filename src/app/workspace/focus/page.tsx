@@ -1,48 +1,21 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import {
-  FileText,
-  FolderTree,
-  Loader2,
-  Plus,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
-import { toast } from "sonner";
+import * as React from 'react';
+import { FileText, FolderTree, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { FocusCanvas } from "@/components/focus-canvas";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { CodeInput, Field, Label, Textarea } from "@/components/ui/form";
-import {
-  Badge,
-  EmptyState,
-  ListRow,
-  Panel,
-  PanelBody,
-  PanelHeader,
-} from "@/components/ui/panel";
-import { confirmDelete, confirmDiscard } from "@/lib/dialogs";
-import { api, describeError } from "@/lib/ipc";
-import { useAppStore } from "@/lib/store";
-import {
-  emptyFocusUpdate,
-  toFocusUpdate,
-  type FocusFile,
-  type FocusUpdate,
-  type ProjectFile,
-} from "@/lib/types";
-import { isInFolder } from "@/lib/utils";
+import { FocusCanvas } from '@/components/focus-canvas';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import { CodeInput, Field, Label, Textarea } from '@/components/ui/form';
+import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
+import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
+import { api, describeError } from '@/lib/ipc';
+import { useAppStore } from '@/lib/store';
+import { emptyFocusUpdate, toFocusUpdate, type FocusFile, type FocusUpdate, type ProjectFile } from '@/lib/types';
+import { isInFolder } from '@/lib/utils';
 
-const FOCUS_FOLDER = "common/national_focus";
+const FOCUS_FOLDER = 'common/national_focus';
 
 export default function FocusPage() {
   const { scan, setError } = useAppStore();
@@ -57,10 +30,7 @@ export default function FocusPage() {
   const [isAdding, setIsAdding] = React.useState(false);
 
   const files = React.useMemo(
-    () =>
-      (scan?.files ?? []).filter(
-        (file) => isInFolder(file.relativePath, FOCUS_FOLDER) && file.extension === "txt",
-      ),
+    () => (scan?.files ?? []).filter((file) => isInFolder(file.relativePath, FOCUS_FOLDER) && file.extension === 'txt'),
     [scan],
   );
 
@@ -68,7 +38,7 @@ export default function FocusPage() {
   const selected = focuses.find((focus) => focus.id === selectedId) ?? null;
 
   async function openFile(file: ProjectFile) {
-    if (isDirty && !(await confirmDiscard("Discard unsaved focus changes?"))) return;
+    if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
 
     setSelectedFile(file);
     setIsLoading(true);
@@ -96,7 +66,7 @@ export default function FocusPage() {
 
   async function selectFocus(id: string) {
     if (id === selectedId) return;
-    if (isDirty && !(await confirmDiscard("Discard unsaved focus changes?"))) return;
+    if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
 
     const focus = focuses.find((entry) => entry.id === id);
     setSelectedId(id);
@@ -112,7 +82,7 @@ export default function FocusPage() {
   /** Dragging on the canvas edits the focus that was dragged. */
   async function moveFocus(id: string, x: number, y: number) {
     if (id !== selectedId) {
-      if (isDirty && !(await confirmDiscard("Discard unsaved focus changes?"))) return;
+      if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
       const focus = focuses.find((entry) => entry.id === id);
       if (!focus) return;
       setSelectedId(id);
@@ -160,18 +130,15 @@ export default function FocusPage() {
   }
 
   return (
-    <div className="grid h-full grid-cols-[15rem_minmax(0,1fr)_20rem] gap-3 p-3">
-      <div className="grid min-h-0 grid-rows-2 gap-3">
+    <div className='grid h-full grid-cols-[15rem_minmax(0,1fr)_20rem] gap-3 p-3'>
+      <div className='grid min-h-0 grid-rows-2 gap-3'>
         <Panel>
-          <PanelHeader title="Focus files" subtitle={`${files.length} in ${FOCUS_FOLDER}`} />
+          <PanelHeader title='Focus files' subtitle={`${files.length} in ${FOCUS_FOLDER}`} />
           <PanelBody>
             {files.length === 0 ? (
-              <EmptyState
-                title="No focus files"
-                description={`This mod has no .txt files under ${FOCUS_FOLDER}.`}
-              />
+              <EmptyState title='No focus files' description={`This mod has no .txt files under ${FOCUS_FOLDER}.`} />
             ) : (
-              <ul className="py-1">
+              <ul className='py-1'>
                 {files.map((file) => (
                   <li key={file.fullPath}>
                     <ListRow
@@ -179,8 +146,8 @@ export default function FocusPage() {
                       onClick={() => void openFile(file)}
                       title={file.relativePath}
                     >
-                      <FileText className="size-3.5 shrink-0 opacity-70" />
-                      <span className="truncate">{file.name}</span>
+                      <FileText className='size-3.5 shrink-0 opacity-70' />
+                      <span className='truncate'>{file.name}</span>
                     </ListRow>
                   </li>
                 ))}
@@ -191,16 +158,11 @@ export default function FocusPage() {
 
         <Panel>
           <PanelHeader
-            title="Focuses"
-            subtitle={focusFile ? `${focuses.length} in this file` : "No file open"}
+            title='Focuses'
+            subtitle={focusFile ? `${focuses.length} in this file` : 'No file open'}
             actions={
               focusFile ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Add focus"
-                  onClick={() => setIsAdding(true)}
-                >
+                <Button variant='ghost' size='icon-sm' title='Add focus' onClick={() => setIsAdding(true)}>
                   <Plus />
                 </Button>
               ) : null
@@ -208,9 +170,9 @@ export default function FocusPage() {
           />
           <PanelBody>
             {focuses.length === 0 ? (
-              <EmptyState title="Nothing to show" description="Open a focus file first." />
+              <EmptyState title='Nothing to show' description='Open a focus file first.' />
             ) : (
-              <ul className="py-1">
+              <ul className='py-1'>
                 {focuses.map((focus) => (
                   <li key={`${focus.id}-${focus.line}`}>
                     <ListRow
@@ -218,9 +180,9 @@ export default function FocusPage() {
                       onClick={() => void selectFocus(focus.id)}
                       title={`line ${focus.line}`}
                     >
-                      <span className="truncate font-mono text-xs">{focus.id || "(no id)"}</span>
+                      <span className='truncate font-mono text-xs'>{focus.id || '(no id)'}</span>
                       {focus.shared ? (
-                        <Badge tone="outline" className="ml-auto shrink-0">
+                        <Badge tone='outline' className='ml-auto shrink-0'>
                           shared
                         </Badge>
                       ) : null}
@@ -235,32 +197,28 @@ export default function FocusPage() {
 
       <Panel>
         <PanelHeader
-          title={focusFile ? selectedFile?.name : "Focus tree"}
+          title={focusFile ? selectedFile?.name : 'Focus tree'}
           subtitle={
             focusFile?.trees.length
-              ? focusFile.trees.map((tree) => tree.id || "(unnamed tree)").join(", ")
-              : "Open a file to see its tree"
+              ? focusFile.trees.map((tree) => tree.id || '(unnamed tree)').join(', ')
+              : 'Open a file to see its tree'
           }
         />
-        <PanelBody className="overflow-hidden p-0">
+        <PanelBody className='overflow-hidden p-0'>
           {isLoading ? (
-            <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
-              <Loader2 className="size-4 animate-spin" />
+            <div className='flex h-full items-center justify-center gap-2 text-sm text-muted'>
+              <Loader2 className='size-4 animate-spin' />
               Reading focuses…
             </div>
           ) : focuses.length === 0 ? (
             <EmptyState
               icon={<FolderTree />}
-              title="No focus tree loaded"
-              description="Pick a file from common/national_focus to see its focuses laid out on the game grid."
+              title='No focus tree loaded'
+              description='Pick a file from common/national_focus to see its focuses laid out on the game grid.'
             />
           ) : (
             <FocusCanvas
-              focuses={focuses.map((focus) =>
-                focus.id === selectedId && draft
-                  ? { ...focus, ...draft }
-                  : focus,
-              )}
+              focuses={focuses.map((focus) => (focus.id === selectedId && draft ? { ...focus, ...draft } : focus))}
               selectedId={selectedId}
               onSelect={(id) => void selectFocus(id)}
               onMove={(id, x, y) => void moveFocus(id, x, y)}
@@ -271,40 +229,28 @@ export default function FocusPage() {
 
       <Panel>
         <PanelHeader
-          title={selected ? "Focus properties" : "Nothing selected"}
+          title={selected ? 'Focus properties' : 'Nothing selected'}
           subtitle={selected ? `line ${selected.line}` : undefined}
           actions={
             selected ? (
               <>
-                {isDirty ? <Badge tone="accent">Unsaved</Badge> : null}
-                <Button variant="ghost" size="icon-sm" title="Delete focus" onClick={() => void remove()}>
+                {isDirty ? <Badge tone='accent'>Unsaved</Badge> : null}
+                <Button variant='ghost' size='icon-sm' title='Delete focus' onClick={() => void remove()}>
                   <Trash2 />
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => void save()}
-                  disabled={!isDirty || isSaving}
-                >
-                  {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                <Button variant='primary' size='sm' onClick={() => void save()} disabled={!isDirty || isSaving}>
+                  {isSaving ? <Loader2 className='animate-spin' /> : <Save />}
                   Save
                 </Button>
               </>
             ) : null
           }
         />
-        <PanelBody className="p-3">
+        <PanelBody className='p-3'>
           {!draft ? (
-            <EmptyState
-              title="Select a focus"
-              description="Pick one from the list or the tree to edit its fields."
-            />
+            <EmptyState title='Select a focus' description='Pick one from the list or the tree to edit its fields.' />
           ) : (
-            <FocusForm
-              draft={draft}
-              focusIds={focuses.map((focus) => focus.id).filter(Boolean)}
-              onChange={patch}
-            />
+            <FocusForm draft={draft} focusIds={focuses.map((focus) => focus.id).filter(Boolean)} onChange={patch} />
           )}
         </PanelBody>
       </Panel>
@@ -337,34 +283,34 @@ function FocusForm({
   const listId = React.useId();
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className='flex flex-col gap-3'>
       <datalist id={listId}>
         {focusIds.map((id) => (
           <option key={id} value={id} />
         ))}
       </datalist>
 
-      <Field label="Id">
+      <Field label='Id'>
         <CodeInput value={draft.id} onChange={(event) => onChange({ id: event.target.value })} />
       </Field>
 
-      <Field label="Icon" hint="Sprite name, e.g. GFX_goal_generic_army_doctrines">
+      <Field label='Icon' hint='Sprite name, e.g. GFX_goal_generic_army_doctrines'>
         <CodeInput value={draft.icon} onChange={(event) => onChange({ icon: event.target.value })} />
       </Field>
 
-      <div className="grid grid-cols-3 gap-2">
-        <Field label="X">
+      <div className='grid grid-cols-3 gap-2'>
+        <Field label='X'>
           <CodeInput value={draft.x} onChange={(event) => onChange({ x: event.target.value })} />
         </Field>
-        <Field label="Y">
+        <Field label='Y'>
           <CodeInput value={draft.y} onChange={(event) => onChange({ y: event.target.value })} />
         </Field>
-        <Field label="Cost">
+        <Field label='Cost'>
           <CodeInput value={draft.cost} onChange={(event) => onChange({ cost: event.target.value })} />
         </Field>
       </div>
 
-      <Field label="Relative to" hint="Leave empty for absolute coordinates">
+      <Field label='Relative to' hint='Leave empty for absolute coordinates'>
         <CodeInput
           list={listId}
           value={draft.relativePositionId}
@@ -372,27 +318,27 @@ function FocusForm({
         />
       </Field>
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
+      <div className='flex flex-col gap-1.5'>
+        <div className='flex items-center justify-between'>
           <Label>Prerequisites</Label>
           <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Add prerequisite group"
-            onClick={() => onChange({ prerequisites: [...draft.prerequisites, [""]] })}
+            variant='ghost'
+            size='icon-sm'
+            title='Add prerequisite group'
+            onClick={() => onChange({ prerequisites: [...draft.prerequisites, ['']] })}
           >
             <Plus />
           </Button>
         </div>
         {draft.prerequisites.length === 0 ? (
-          <p className="text-xs text-muted">None. The focus is available from the start.</p>
+          <p className='text-xs text-muted'>None. The focus is available from the start.</p>
         ) : (
           draft.prerequisites.map((group, index) => (
-            <div key={index} className="flex items-center gap-1.5">
+            <div key={index} className='flex items-center gap-1.5'>
               <CodeInput
                 list={listId}
-                value={group.join(" ")}
-                placeholder="focus_a focus_b"
+                value={group.join(' ')}
+                placeholder='focus_a focus_b'
                 onChange={(event) => {
                   const next = [...draft.prerequisites];
                   next[index] = event.target.value.split(/\s+/).filter(Boolean);
@@ -400,9 +346,9 @@ function FocusForm({
                 }}
               />
               <Button
-                variant="ghost"
-                size="icon-sm"
-                title="Remove group"
+                variant='ghost'
+                size='icon-sm'
+                title='Remove group'
                 onClick={() =>
                   onChange({
                     prerequisites: draft.prerequisites.filter((_, at) => at !== index),
@@ -414,48 +360,32 @@ function FocusForm({
             </div>
           ))
         )}
-        <p className="text-xs text-muted">
-          Ids in one row satisfy each other; each row must be satisfied.
-        </p>
+        <p className='text-xs text-muted'>Ids in one row satisfy each other; each row must be satisfied.</p>
       </div>
 
-      <Field label="Mutually exclusive">
+      <Field label='Mutually exclusive'>
         <CodeInput
           list={listId}
-          value={draft.mutuallyExclusive.join(" ")}
-          placeholder="focus_c focus_d"
-          onChange={(event) =>
-            onChange({ mutuallyExclusive: event.target.value.split(/\s+/).filter(Boolean) })
-          }
+          value={draft.mutuallyExclusive.join(' ')}
+          placeholder='focus_c focus_d'
+          onChange={(event) => onChange({ mutuallyExclusive: event.target.value.split(/\s+/).filter(Boolean) })}
         />
       </Field>
 
       <BlockField
-        label="Completion reward"
+        label='Completion reward'
         value={draft.completionReward}
         onChange={(value) => onChange({ completionReward: value })}
         open
       />
+      <BlockField label='Available' value={draft.available} onChange={(value) => onChange({ available: value })} />
+      <BlockField label='Bypass' value={draft.bypass} onChange={(value) => onChange({ bypass: value })} />
       <BlockField
-        label="Available"
-        value={draft.available}
-        onChange={(value) => onChange({ available: value })}
-      />
-      <BlockField
-        label="Bypass"
-        value={draft.bypass}
-        onChange={(value) => onChange({ bypass: value })}
-      />
-      <BlockField
-        label="Allow branch"
+        label='Allow branch'
         value={draft.allowBranch}
         onChange={(value) => onChange({ allowBranch: value })}
       />
-      <BlockField
-        label="AI will do"
-        value={draft.aiWillDo}
-        onChange={(value) => onChange({ aiWillDo: value })}
-      />
+      <BlockField label='AI will do' value={draft.aiWillDo} onChange={(value) => onChange({ aiWillDo: value })} />
     </div>
   );
 }
@@ -473,17 +403,17 @@ function BlockField({
   open?: boolean;
 }) {
   return (
-    <details open={open || value.trim().length > 0} className="group">
-      <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted marker:content-none hover:text-foreground">
+    <details open={open || value.trim().length > 0} className='group'>
+      <summary className='cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted marker:content-none hover:text-foreground'>
         {label}
-        {value.trim() ? "" : " · empty"}
+        {value.trim() ? '' : ' · empty'}
       </summary>
       <Textarea
-        className="mt-1.5"
+        className='mt-1.5'
         rows={4}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="add_political_power = 120"
+        placeholder='add_political_power = 120'
       />
     </details>
   );
@@ -500,8 +430,8 @@ function AddFocusDialog({
   onCreated: (updated: FocusFile, focusId: string) => void;
   onError: (message: string) => void;
 }) {
-  const [id, setId] = React.useState("");
-  const [treeId, setTreeId] = React.useState(file.trees[0]?.id ?? "");
+  const [id, setId] = React.useState('');
+  const [treeId, setTreeId] = React.useState(file.trees[0]?.id ?? '');
   const [isSaving, setIsSaving] = React.useState(false);
 
   async function create() {
@@ -512,10 +442,10 @@ function AddFocusDialog({
       const focus: FocusUpdate = {
         ...emptyFocusUpdate(),
         id: id.trim(),
-        icon: "GFX_goal_unknown",
-        x: "0",
-        y: "0",
-        cost: "10",
+        icon: 'GFX_goal_unknown',
+        x: '0',
+        y: '0',
+        cost: '10',
       };
       const updated = await api.addFocus(file.path, treeId, focus);
       onCreated(updated, focus.id);
@@ -530,20 +460,20 @@ function AddFocusDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
-        title="Add a focus"
-        description="A stub focus is appended to the tree; fill in the rest on the right."
+        title='Add a focus'
+        description='A stub focus is appended to the tree; fill in the rest on the right.'
       >
-        <DialogBody className="flex flex-col gap-3">
-          <Field label="Focus id">
+        <DialogBody className='flex flex-col gap-3'>
+          <Field label='Focus id'>
             <CodeInput
               value={id}
               autoFocus
-              placeholder="my_country_rearmament"
+              placeholder='my_country_rearmament'
               onChange={(event) => setId(event.target.value)}
             />
           </Field>
           {file.trees.length > 1 ? (
-            <Field label="Focus tree">
+            <Field label='Focus tree'>
               <CodeInput value={treeId} onChange={(event) => setTreeId(event.target.value)} />
             </Field>
           ) : null}
@@ -552,8 +482,8 @@ function AddFocusDialog({
           <DialogClose asChild>
             <Button>Cancel</Button>
           </DialogClose>
-          <Button variant="primary" onClick={() => void create()} disabled={!id.trim() || isSaving}>
-            {isSaving ? <Loader2 className="animate-spin" /> : <Plus />}
+          <Button variant='primary' onClick={() => void create()} disabled={!id.trim() || isSaving}>
+            {isSaving ? <Loader2 className='animate-spin' /> : <Plus />}
             Add focus
           </Button>
         </DialogFooter>

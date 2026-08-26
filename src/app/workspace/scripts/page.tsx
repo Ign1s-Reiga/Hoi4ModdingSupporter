@@ -1,26 +1,20 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { FileText, Loader2, RotateCcw, Save, Search } from "lucide-react";
-import { toast } from "sonner";
+import * as React from 'react';
+import { FileText, Loader2, RotateCcw, Save, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { ScriptEditor } from "@/components/script-editor";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/form";
-import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { confirmDiscard } from "@/lib/dialogs";
-import { SCRIPT_GROUPS, filterFiles } from "@/lib/groups";
-import { api, describeError } from "@/lib/ipc";
-import { useAppStore } from "@/lib/store";
-import { formatBytes } from "@/lib/utils";
-import type { Encoding, ProjectFile } from "@/lib/types";
+import { ScriptEditor } from '@/components/script-editor';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/form';
+import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { confirmDiscard } from '@/lib/dialogs';
+import { SCRIPT_GROUPS, filterFiles } from '@/lib/groups';
+import { api, describeError } from '@/lib/ipc';
+import { useAppStore } from '@/lib/store';
+import { formatBytes } from '@/lib/utils';
+import type { Encoding, ProjectFile } from '@/lib/types';
 
 /** Rendering every row of a total conversion would stall the list. */
 const MAX_ROWS = 400;
@@ -28,26 +22,20 @@ const MAX_ROWS = 400;
 export default function ScriptsPage() {
   const { scan, isScanning, setError } = useAppStore();
 
-  const [groupId, setGroupId] = React.useState("all");
-  const [search, setSearch] = React.useState("");
+  const [groupId, setGroupId] = React.useState('all');
+  const [search, setSearch] = React.useState('');
   const [selected, setSelected] = React.useState<ProjectFile | null>(null);
 
-  const [content, setContent] = React.useState("");
-  const [saved, setSaved] = React.useState("");
+  const [content, setContent] = React.useState('');
+  const [saved, setSaved] = React.useState('');
   const [hasBom, setHasBom] = React.useState(false);
-  const [encoding, setEncoding] = React.useState<Encoding>("utf8");
+  const [encoding, setEncoding] = React.useState<Encoding>('utf8');
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
   const group = SCRIPT_GROUPS.find((entry) => entry.id === groupId) ?? SCRIPT_GROUPS[0];
-  const textFiles = React.useMemo(
-    () => (scan?.files ?? []).filter((file) => file.kind === "text"),
-    [scan],
-  );
-  const matches = React.useMemo(
-    () => filterFiles(textFiles, group, search),
-    [textFiles, group, search],
-  );
+  const textFiles = React.useMemo(() => (scan?.files ?? []).filter((file) => file.kind === 'text'), [scan]);
+  const matches = React.useMemo(() => filterFiles(textFiles, group, search), [textFiles, group, search]);
   const isDirty = content !== saved;
 
   async function openFile(file: ProjectFile) {
@@ -96,13 +84,13 @@ export default function ScriptsPage() {
   }, [content, encoding, hasBom, selected, setError]);
 
   return (
-    <div className="grid h-full grid-cols-[minmax(16rem,22rem)_1fr] gap-3 p-3">
+    <div className='grid h-full grid-cols-[minmax(16rem,22rem)_1fr] gap-3 p-3'>
       <Panel>
         <PanelHeader
-          title="Project files"
+          title='Project files'
           subtitle={`${matches.length.toLocaleString()} of ${textFiles.length.toLocaleString()} text files`}
         />
-        <div className="flex flex-col gap-2 border-b border-border p-2">
+        <div className='flex flex-col gap-2 border-b border-border p-2'>
           <Select value={groupId} onValueChange={setGroupId}>
             <SelectTrigger>
               <SelectValue />
@@ -115,31 +103,28 @@ export default function ScriptsPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+          <div className='relative'>
+            <Search className='pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted' />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Filter by path"
-              className="pl-8"
+              placeholder='Filter by path'
+              className='pl-8'
             />
           </div>
         </div>
 
         <PanelBody>
           {isScanning ? (
-            <div className="flex items-center gap-2 p-4 text-sm text-muted">
-              <Loader2 className="size-4 animate-spin" />
+            <div className='flex items-center gap-2 p-4 text-sm text-muted'>
+              <Loader2 className='size-4 animate-spin' />
               Scanning…
             </div>
           ) : matches.length === 0 ? (
-            <EmptyState
-              title="Nothing here"
-              description="No text files match this filter."
-            />
+            <EmptyState title='Nothing here' description='No text files match this filter.' />
           ) : (
             <>
-              <ul className="py-1">
+              <ul className='py-1'>
                 {matches.slice(0, MAX_ROWS).map((file) => (
                   <li key={file.fullPath}>
                     <ListRow
@@ -147,9 +132,9 @@ export default function ScriptsPage() {
                       onClick={() => void openFile(file)}
                       title={file.relativePath}
                     >
-                      <FileText className="size-3.5 shrink-0 opacity-70" />
-                      <span className="truncate">{file.relativePath}</span>
-                      <span className="ml-auto shrink-0 text-[0.6875rem] text-muted">
+                      <FileText className='size-3.5 shrink-0 opacity-70' />
+                      <span className='truncate'>{file.relativePath}</span>
+                      <span className='ml-auto shrink-0 text-[0.6875rem] text-muted'>
                         {formatBytes(file.sizeBytes)}
                       </span>
                     </ListRow>
@@ -157,7 +142,7 @@ export default function ScriptsPage() {
                 ))}
               </ul>
               {matches.length > MAX_ROWS ? (
-                <p className="px-3 py-2 text-xs text-muted">
+                <p className='px-3 py-2 text-xs text-muted'>
                   Showing the first {MAX_ROWS} matches. Narrow the filter to see the rest.
                 </p>
               ) : null}
@@ -168,57 +153,47 @@ export default function ScriptsPage() {
 
       <Panel>
         <PanelHeader
-          title={selected ? selected.relativePath : "No file selected"}
+          title={selected ? selected.relativePath : 'No file selected'}
           subtitle={
             selected
-              ? `${formatBytes(selected.sizeBytes)}${hasBom ? " · BOM" : ""}${encoding === "windows1252" ? " · Windows-1252" : ""}`
-              : "Pick a file from the list"
+              ? `${formatBytes(selected.sizeBytes)}${hasBom ? ' · BOM' : ''}${encoding === 'windows1252' ? ' · Windows-1252' : ''}`
+              : 'Pick a file from the list'
           }
           actions={
             selected ? (
               <>
-                {isDirty ? <Badge tone="accent">Unsaved</Badge> : null}
+                {isDirty ? <Badge tone='accent'>Unsaved</Badge> : null}
                 <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Reload from disk"
+                  variant='ghost'
+                  size='icon-sm'
+                  title='Reload from disk'
                   onClick={() => void openFile(selected)}
                   disabled={isLoading}
                 >
                   <RotateCcw />
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => void save()}
-                  disabled={!isDirty || isSaving}
-                >
-                  {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                <Button variant='primary' size='sm' onClick={() => void save()} disabled={!isDirty || isSaving}>
+                  {isSaving ? <Loader2 className='animate-spin' /> : <Save />}
                   Save
                 </Button>
               </>
             ) : null
           }
         />
-        <PanelBody className="overflow-hidden">
+        <PanelBody className='overflow-hidden'>
           {!selected ? (
             <EmptyState
               icon={<FileText />}
-              title="Script editor"
-              description="Open any .txt, .gfx, .gui or .yml file from the mod to edit it here. Ctrl+S saves, Ctrl+F searches."
+              title='Script editor'
+              description='Open any .txt, .gfx, .gui or .yml file from the mod to edit it here. Ctrl+S saves, Ctrl+F searches.'
             />
           ) : isLoading ? (
-            <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
-              <Loader2 className="size-4 animate-spin" />
+            <div className='flex h-full items-center justify-center gap-2 text-sm text-muted'>
+              <Loader2 className='size-4 animate-spin' />
               Loading…
             </div>
           ) : (
-            <ScriptEditor
-              value={content}
-              onChange={setContent}
-              onSave={() => void save()}
-              className="h-full"
-            />
+            <ScriptEditor value={content} onChange={setContent} onSave={() => void save()} className='h-full' />
           )}
         </PanelBody>
       </Panel>
