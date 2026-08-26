@@ -33,8 +33,10 @@ export default function ScriptsPage() {
   const [encoding, setEncoding] = React.useState<Encoding>('utf8');
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  // The file the newest open request was for, so slower reads can be ignored.
-  const openRequest = React.useRef<string | null>(null);
+  // Counts open requests so a slower read can tell it has been superseded.
+  // A path would not be enough: opening A, then B, then A again would let the
+  // first read pass while the third is still in flight.
+  const openRequest = React.useRef(0);
 
   const group = SCRIPT_GROUPS.find((entry) => entry.id === groupId) ?? SCRIPT_GROUPS[0];
   const textFiles = React.useMemo(() => (scan?.files ?? []).filter((file) => file.kind === 'text'), [scan]);
@@ -50,23 +52,23 @@ export default function ScriptsPage() {
 
     // Reads can finish out of order. A slow one landing last would show its
     // text under the newer file name, and Save would write it there.
-    openRequest.current = file.fullPath;
+    const request = ++openRequest.current;
     setSelected(file);
     setIsLoading(true);
     try {
       const loaded = await api.readTextFile(file.fullPath);
-      if (openRequest.current !== file.fullPath) return;
+      if (openRequest.current !== request) return;
 
       setContent(loaded.content);
       setSaved(loaded.content);
       setHasBom(loaded.hasBom);
       setEncoding(loaded.encoding);
     } catch (error) {
-      if (openRequest.current !== file.fullPath) return;
+      if (openRequest.current !== request) return;
       setError(describeError(error));
       setSelected(null);
     } finally {
-      if (openRequest.current === file.fullPath) setIsLoading(false);
+      if (openRequest.current === request) setIsLoading(false);
     }
   }
 

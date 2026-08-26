@@ -105,7 +105,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   closeProject() {
     window.localStorage.removeItem(LAST_PROJECT_KEY);
-    set({ project: null, scan: null, unsavedIn: null });
+    // A scan in flight will decline to clear this once its project is gone.
+    set({ project: null, scan: null, unsavedIn: null, isScanning: false });
   },
 
   async refreshScan() {

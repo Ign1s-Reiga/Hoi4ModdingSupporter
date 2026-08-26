@@ -38,6 +38,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/workspace/assets', label: 'Assets', icon: Images, needsProject: true },
 ];
 
+/** Compares route paths regardless of a trailing slash. */
+function samePath(left: string, right: string): boolean {
+  return left.replace(/\/+$/, '') === right.replace(/\/+$/, '');
+}
+
 /** Keeps the document theme in step with the saved setting. */
 function useThemeClass(theme: string | undefined) {
   React.useEffect(() => {
@@ -60,19 +65,8 @@ function useThemeClass(theme: string | undefined) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    settings,
-    project,
-    scan,
-    isScanning,
-    error,
-    unsavedIn,
-    initialise,
-    refreshScan,
-    closeProject,
-    setError,
-    setUnsavedIn,
-  } = useAppStore();
+  const { settings, project, scan, isScanning, error, unsavedIn, initialise, refreshScan, closeProject, setError } =
+    useAppStore();
 
   useThemeClass(settings?.theme);
 
@@ -87,16 +81,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const confirmLeaving = React.useCallback(async () => {
     if (!unsavedIn) return true;
 
-    const leave = await confirmDiscard(`Discard unsaved changes in the ${unsavedIn}?`);
-    if (leave) setUnsavedIn(null);
-    return leave;
-  }, [setUnsavedIn, unsavedIn]);
+    // The marker is left alone: useUnsavedIn clears it when the page it
+    // belongs to unmounts. Clearing it here would drop the guard for a
+    // navigation that turned out to keep the page mounted after all.
+    return confirmDiscard(`Discard unsaved changes in the ${unsavedIn}?`);
+  }, [unsavedIn]);
 
   const navigate = React.useCallback(
     async (href: string) => {
+      // Re-clicking the section already open tears nothing down.
+      if (samePath(href, pathname)) return;
       if (await confirmLeaving()) router.push(href);
     },
-    [confirmLeaving, router],
+    [confirmLeaving, pathname, router],
   );
 
   return (
@@ -244,6 +241,11 @@ function NavLink({
       onClick={(event) => {
         // Asking about unsaved work is asynchronous, so the navigation is
         // taken over here rather than left to the router.
+        //
+        // Modified clicks are taken over as well, deliberately. In a browser
+        // Ctrl or Shift click would open a tab or window; this is a single
+        // window desktop shell with neither, and letting those through would
+        // only produce a navigation that skips the discard prompt.
         event.preventDefault();
         void onNavigate(item.href);
       }}

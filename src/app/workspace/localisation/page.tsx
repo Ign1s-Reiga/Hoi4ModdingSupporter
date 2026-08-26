@@ -35,8 +35,10 @@ export default function LocalisationPage() {
   const [search, setSearch] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
-  // The file the newest open request was for, so slower reads can be ignored.
-  const openRequest = React.useRef<string | null>(null);
+  // Counts open requests so a slower read can tell it has been superseded.
+  // A path would not be enough: opening A, then B, then A again would let the
+  // first read pass while the third is still in flight.
+  const openRequest = React.useRef(0);
 
   const folder = project?.folderPath ?? '';
   const files = React.useMemo(() => (listing?.folder === folder ? listing.files : []), [folder, listing]);
@@ -85,23 +87,23 @@ export default function LocalisationPage() {
     if (isDirty && !(await confirmDiscard('Discard unsaved localisation changes?'))) return;
 
     // A slower read must not replace the entries of the file opened after it.
-    openRequest.current = file.path;
+    const request = ++openRequest.current;
     setSelected(file);
     setIsLoading(true);
     try {
       const loaded = await api.readLocalisationFile(file.path);
-      if (openRequest.current !== file.path) return;
+      if (openRequest.current !== request) return;
 
       setEntries(loaded.entries);
       setSaved(loaded.entries);
       setFileLanguage(loaded.language);
       setHasBom(loaded.hasBom);
     } catch (error) {
-      if (openRequest.current !== file.path) return;
+      if (openRequest.current !== request) return;
       setError(describeError(error));
       setSelected(null);
     } finally {
-      if (openRequest.current === file.path) setIsLoading(false);
+      if (openRequest.current === request) setIsLoading(false);
     }
   }
 
