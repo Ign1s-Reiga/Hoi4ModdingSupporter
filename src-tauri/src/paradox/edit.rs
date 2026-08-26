@@ -187,7 +187,10 @@ fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change
         }
         None => {
             let indent = child_indent(source, block);
-            Change::Add(format!("{key} = {}", format_block(trimmed, &indent, newline)))
+            Change::Add(format!(
+                "{key} = {}",
+                format_block(trimmed, &indent, newline)
+            ))
         }
     }
 }
@@ -430,7 +433,10 @@ mod tests {
             editor.set_scalar("y", "4");
         });
 
-        assert!(result.contains("\n\t\ty = 4\n"), "unexpected output:\n{result}");
+        assert!(
+            result.contains("\n\t\ty = 4\n"),
+            "unexpected output:\n{result}"
+        );
         assert!(result.contains("cost = 10"));
     }
 

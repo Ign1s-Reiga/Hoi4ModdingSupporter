@@ -40,12 +40,11 @@ pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<Strin
         message: format!("`{extension}` files cannot be previewed"),
     })?;
 
-    let decoded = image::load_from_memory_with_format(&bytes, format).map_err(|error| {
-        AppError::Image {
+    let decoded =
+        image::load_from_memory_with_format(&bytes, format).map_err(|error| AppError::Image {
             path: path.to_string(),
             message: error.to_string(),
-        }
-    })?;
+        })?;
 
     let decoded = match max_dimension {
         Some(limit) if decoded.width() > limit || decoded.height() > limit => {
@@ -62,7 +61,10 @@ pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<Strin
             message: error.to_string(),
         })?;
 
-    Ok(format!("data:image/png;base64,{}", STANDARD.encode(&encoded)))
+    Ok(format!(
+        "data:image/png;base64,{}",
+        STANDARD.encode(&encoded)
+    ))
 }
 
 /// Formats a WebView can display without any conversion.

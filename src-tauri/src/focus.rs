@@ -444,10 +444,7 @@ fn find_focus_pair<'a>(items: &'a [Item], focus_id: &str) -> Option<&'a Pair> {
             continue;
         };
 
-        let is_focus = matches!(
-            pair.key.to_lowercase().as_str(),
-            "focus" | "shared_focus"
-        );
+        let is_focus = matches!(pair.key.to_lowercase().as_str(), "focus" | "shared_focus");
 
         if let Value::Block(block) = &pair.value {
             if is_focus && block.scalar("id").as_deref() == Some(focus_id) {
@@ -494,7 +491,10 @@ mod tests {
         assert_eq!(beta.id, "beta");
         assert_eq!(beta.prerequisites, vec![vec!["alpha".to_string()]]);
         assert_eq!(beta.mutually_exclusive, vec!["gamma".to_string()]);
-        assert_eq!(file.focuses[0].completion_reward, "add_political_power = 100");
+        assert_eq!(
+            file.focuses[0].completion_reward,
+            "add_political_power = 100"
+        );
     }
 
     #[test]
@@ -581,7 +581,10 @@ mod tests {
         update(&path, "beta", &change).expect("updates");
 
         let saved = std::fs::read_to_string(&path).expect("read back");
-        assert!(saved.contains("# the army branch"), "comment lost:\n{saved}");
+        assert!(
+            saved.contains("# the army branch"),
+            "comment lost:\n{saved}"
+        );
         assert!(saved.contains("cost = 9"));
     }
 
@@ -660,10 +663,7 @@ mod tests {
 
         let after_delete = delete(&path, "gamma").expect("deletes");
         assert_eq!(after_delete.focuses.len(), 2);
-        assert!(after_delete
-            .focuses
-            .iter()
-            .all(|focus| focus.id != "gamma"));
+        assert!(after_delete.focuses.iter().all(|focus| focus.id != "gamma"));
     }
 
     #[test]

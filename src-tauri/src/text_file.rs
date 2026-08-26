@@ -144,14 +144,23 @@ mod tests {
 
     #[test]
     fn decodes_windows_1252_high_bytes() {
-        assert_eq!(decode_windows_1252(&[0x93, 0x41, 0x94]), "\u{201C}A\u{201D}");
+        assert_eq!(
+            decode_windows_1252(&[0x93, 0x41, 0x94]),
+            "\u{201C}A\u{201D}"
+        );
     }
 
     #[test]
     fn round_trips_a_bom() {
         let path = temp_path("l_english.yml");
 
-        write(&path, "l_english:\n key:0 \"value\"\n", Encoding::Utf8, true).expect("write");
+        write(
+            &path,
+            "l_english:\n key:0 \"value\"\n",
+            Encoding::Utf8,
+            true,
+        )
+        .expect("write");
         let file = read(&path).expect("read");
 
         assert!(file.has_bom);

@@ -59,7 +59,11 @@ pub fn read(path: &str) -> AppResult<LocalisationFile> {
 }
 
 /// Rewrites the entries of a file, leaving comments and unknown lines in place.
-pub fn write(path: &str, language: &str, entries: &[LocalisationEntry]) -> AppResult<LocalisationFile> {
+pub fn write(
+    path: &str,
+    language: &str,
+    entries: &[LocalisationEntry],
+) -> AppResult<LocalisationFile> {
     let target = Path::new(path);
     let existing = if target.exists() {
         text_file::read(target)?
