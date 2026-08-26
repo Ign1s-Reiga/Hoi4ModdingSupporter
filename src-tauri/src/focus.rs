@@ -212,6 +212,19 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
         AppError::message(format!("no focus with id `{focus_id}` exists in {path}"))
     })?;
 
+    // The id is editable, and both of these would corrupt the file: an empty
+    // one drops the `id` assignment the game requires, and a duplicate makes
+    // every later lookup land on whichever focus comes first.
+    let new_id = update.id.trim();
+    if new_id.is_empty() {
+        return Err(AppError::message("a focus needs an id"));
+    }
+    if new_id != focus_id && find_focus_pair(&document.items, new_id).is_some() {
+        return Err(AppError::message(format!(
+            "a focus with id `{new_id}` already exists in this file"
+        )));
+    }
+
     let mut editor = BlockEditor::new(source, focus);
 
     for (key, value) in [
@@ -664,6 +677,54 @@ mod tests {
         let after_delete = delete(&path, "gamma").expect("deletes");
         assert_eq!(after_delete.focuses.len(), 2);
         assert!(after_delete.focuses.iter().all(|focus| focus.id != "gamma"));
+    }
+
+    #[test]
+    fn refuses_to_clear_an_id_on_update() {
+        let path = write_temp("empty-id.txt", TREE);
+        let change = FocusUpdate {
+            id: "   ".into(),
+            cost: "10".into(),
+            ..Default::default()
+        };
+
+        let error = update(&path, "alpha", &change).expect_err("an empty id is refused");
+        assert!(error.to_string().contains("needs an id"));
+
+        // The file is left exactly as it was.
+        assert_eq!(std::fs::read_to_string(&path).expect("read back"), TREE);
+    }
+
+    #[test]
+    fn refuses_to_rename_onto_another_focus() {
+        let path = write_temp("collide.txt", TREE);
+        let change = FocusUpdate {
+            id: "beta".into(),
+            cost: "10".into(),
+            ..Default::default()
+        };
+
+        let error = update(&path, "alpha", &change).expect_err("a duplicate id is refused");
+        assert!(error.to_string().contains("already exists"));
+        assert_eq!(std::fs::read_to_string(&path).expect("read back"), TREE);
+    }
+
+    #[test]
+    fn keeping_the_same_id_is_not_a_collision() {
+        let path = write_temp("same-id.txt", TREE);
+        let change = FocusUpdate {
+            id: "alpha".into(),
+            cost: "42".into(),
+            ..Default::default()
+        };
+
+        let file = update(&path, "alpha", &change).expect("updates");
+        let alpha = file
+            .focuses
+            .iter()
+            .find(|focus| focus.id == "alpha")
+            .expect("alpha");
+        assert_eq!(alpha.cost, "42");
     }
 
     #[test]
