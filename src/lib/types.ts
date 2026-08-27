@@ -161,3 +161,113 @@ export function toFocusUpdate(focus: Focus): FocusUpdate {
     aiWillDo: focus.aiWillDo,
   };
 }
+
+/** A map state from `history/states/*.txt`. */
+export interface MapState {
+  id: string;
+  /** Localisation key, e.g. `STATE_1`. */
+  name: string;
+  manpower: string;
+  stateCategory: string;
+  localSupplies: string;
+  buildingsMaxLevelFactor: string;
+  provinces: string[];
+  /** Body of `resources = { ... }`, kept as text. */
+  resources: string;
+  owner: string;
+  controller: string;
+  cores: string[];
+  claims: string[];
+  /** Body of `buildings = { ... }`, which nests province-keyed blocks. */
+  buildings: string;
+  /** One entry per `victory_points` block, as `province value`. */
+  victoryPoints: string[];
+  line: number;
+}
+
+export interface StateFile {
+  path: string;
+  states: MapState[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** Blocks the file never closed. The game tolerates these. */
+  unclosedBlocks: number;
+}
+
+export type StateUpdate = Omit<MapState, 'line'>;
+
+export interface Politics {
+  rulingParty: string;
+  lastElection: string;
+  electionFrequency: string;
+  /** `yes`, `no`, or empty when the file does not say. */
+  electionsAllowed: string;
+}
+
+export interface Popularity {
+  ideology: string;
+  value: string;
+}
+
+/** The starting setup of one country, from `history/countries/TAG - Name.txt`. */
+export interface CountryHistory {
+  path: string;
+  tag: string;
+  fileName: string;
+  capital: string;
+  oob: string;
+  researchSlots: string;
+  convoys: string;
+  stability: string;
+  warSupport: string;
+  politics: Politics;
+  popularities: Popularity[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** Blocks the file never closed. The game tolerates these. */
+  unclosedBlocks: number;
+}
+
+export interface CountryHistoryInfo {
+  path: string;
+  relativePath: string;
+  tag: string;
+  fileName: string;
+}
+
+export type CountryHistoryUpdate = Pick<
+  CountryHistory,
+  'capital' | 'oob' | 'researchSlots' | 'convoys' | 'stability' | 'warSupport' | 'politics' | 'popularities'
+>;
+
+export function toStateUpdate(state: MapState): StateUpdate {
+  return {
+    id: state.id,
+    name: state.name,
+    manpower: state.manpower,
+    stateCategory: state.stateCategory,
+    localSupplies: state.localSupplies,
+    buildingsMaxLevelFactor: state.buildingsMaxLevelFactor,
+    provinces: state.provinces,
+    resources: state.resources,
+    owner: state.owner,
+    controller: state.controller,
+    cores: state.cores,
+    claims: state.claims,
+    buildings: state.buildings,
+    victoryPoints: state.victoryPoints,
+  };
+}
+
+export function toCountryHistoryUpdate(country: CountryHistory): CountryHistoryUpdate {
+  return {
+    capital: country.capital,
+    oob: country.oob,
+    researchSlots: country.researchSlots,
+    convoys: country.convoys,
+    stability: country.stability,
+    warSupport: country.warSupport,
+    politics: country.politics,
+    popularities: country.popularities,
+  };
+}

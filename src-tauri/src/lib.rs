@@ -1,10 +1,12 @@
 mod assets;
+mod country_history;
 mod error;
 mod focus;
 mod localisation;
 mod paradox;
 mod project;
 mod settings;
+mod state;
 mod text_file;
 
 use tauri::AppHandle;
@@ -147,6 +149,40 @@ fn write_localisation_file(
 }
 
 #[tauri::command]
+fn read_state_file(path: String) -> AppResult<state::StateFile> {
+    state::read(&path)
+}
+
+#[tauri::command]
+fn update_state(
+    path: String,
+    state_id: String,
+    update: state::StateUpdate,
+) -> AppResult<state::StateFile> {
+    state::update(&path, &state_id, &update)
+}
+
+#[tauri::command]
+fn list_country_history(
+    folder_path: String,
+) -> AppResult<Vec<country_history::CountryHistoryInfo>> {
+    country_history::scan(&folder_path)
+}
+
+#[tauri::command]
+fn read_country_history(path: String) -> AppResult<country_history::CountryHistory> {
+    country_history::read(&path)
+}
+
+#[tauri::command]
+fn update_country_history(
+    path: String,
+    update: country_history::CountryHistoryUpdate,
+) -> AppResult<country_history::CountryHistory> {
+    country_history::update(&path, &update)
+}
+
+#[tauri::command]
 fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<String> {
     assets::image_data_url(&path, max_dimension)
 }
@@ -187,6 +223,11 @@ pub fn run() {
             update_focus,
             add_focus,
             delete_focus,
+            read_state_file,
+            update_state,
+            list_country_history,
+            read_country_history,
+            update_country_history,
             list_localisation_files,
             read_localisation_file,
             write_localisation_file,
