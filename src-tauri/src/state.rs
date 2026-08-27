@@ -187,10 +187,21 @@ pub fn update(path: &str, state_id: &str, update: &StateUpdate) -> AppResult<Sta
     if new_id.is_empty() {
         return Err(AppError::message("a state needs an id"));
     }
-    if new_id != state_id && find_state(&document, new_id).is_some() {
-        return Err(AppError::message(format!(
-            "a state with id `{new_id}` already exists in this file"
-        )));
+    if new_id != state_id {
+        if find_state(&document, new_id).is_some() {
+            return Err(AppError::message(format!(
+                "a state with id `{new_id}` already exists in this file"
+            )));
+        }
+
+        // State ids are global across history/states, not per file. The sibling
+        // scan only runs on a rename, which is rare, so the cost stays off the
+        // ordinary save path.
+        if let Some(other) = find_state_in_siblings(Path::new(path), new_id) {
+            return Err(AppError::message(format!(
+                "state id `{new_id}` is already used by {other}"
+            )));
+        }
     }
 
     let state_block = state
@@ -303,7 +314,52 @@ fn render_history(update: &StateUpdate) -> String {
         }
     }
 
+    // Buildings are a block of their own inside history, and leaving them out
+    // here would drop whatever the form was holding.
+    if !update.buildings.trim().is_empty() {
+        let body = update
+            .buildings
+            .lines()
+            .map(|line| format!("\t{}", line.trim_end()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        lines.push(format!("buildings = {{\n{body}\n}}"));
+    }
+
     lines.join("\n")
+}
+
+/// Name of the sibling file already defining `state_id`, if any.
+///
+/// Ids are unique across the whole state database, so a rename has to look
+/// wider than the file being edited.
+fn find_state_in_siblings(path: &Path, state_id: &str) -> Option<String> {
+    let directory = path.parent()?;
+
+    for entry in std::fs::read_dir(directory).ok()?.flatten() {
+        let sibling = entry.path();
+        if sibling == path || sibling.extension().and_then(|value| value.to_str()) != Some("txt") {
+            continue;
+        }
+
+        let Ok(file) = text_file::read(&sibling) else {
+            continue;
+        };
+        let Ok(document) = paradox::parse(&file.content) else {
+            continue;
+        };
+
+        if find_state(&document, state_id).is_some() {
+            return Some(
+                sibling
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            );
+        }
+    }
+
+    None
 }
 
 fn find_state<'a>(document: &'a paradox::Document, state_id: &str) -> Option<&'a Pair> {
@@ -445,6 +501,58 @@ mod tests {
         assert_eq!(state.manpower, "1000");
         assert_eq!(state.state_category, "rural");
         assert_eq!(state.owner, "ITA");
+    }
+
+    #[test]
+    fn a_new_history_block_carries_the_buildings_too() {
+        let path = write_temp(
+            "history-buildings.txt",
+            "state={\n\tid=11\n\tname=\"STATE_11\"\n}\n",
+        );
+        let file = read(&path).expect("reads");
+
+        let mut change = update_from(&file.states[0]);
+        change.owner = "SPR".into();
+        change.buildings = "infrastructure = 3\narms_factory = 2".into();
+
+        let saved = update(&path, "11", &change).expect("updates");
+        let state = &saved.states[0];
+
+        assert_eq!(state.owner, "SPR");
+        assert!(
+            state.buildings.contains("infrastructure = 3"),
+            "buildings dropped:\n{}",
+            std::fs::read_to_string(&path).expect("read back")
+        );
+        assert!(state.buildings.contains("arms_factory = 2"));
+    }
+
+    #[test]
+    fn a_rename_onto_a_sibling_file_is_refused() {
+        let directory = std::env::temp_dir().join("hoi4ms-state-siblings");
+        std::fs::remove_dir_all(&directory).ok();
+        std::fs::create_dir_all(&directory).expect("temp dir");
+
+        let first = directory.join("1-one.txt");
+        let second = directory.join("2-two.txt");
+        std::fs::write(&first, "state={\n\tid=1\n\tname=\"STATE_1\"\n}\n").expect("write");
+        std::fs::write(&second, "state={\n\tid=2\n\tname=\"STATE_2\"\n}\n").expect("write");
+
+        let path = first.display().to_string();
+        let file = read(&path).expect("reads");
+        let mut change = update_from(&file.states[0]);
+        change.id = "2".into();
+
+        let error = update(&path, "1", &change).expect_err("the id is taken");
+        assert!(
+            error.to_string().contains("2-two.txt"),
+            "unexpected: {error}"
+        );
+
+        // The file is untouched.
+        assert!(std::fs::read_to_string(&first)
+            .expect("read back")
+            .contains("id=1"));
     }
 
     #[test]

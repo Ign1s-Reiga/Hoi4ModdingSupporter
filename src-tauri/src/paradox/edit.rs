@@ -181,25 +181,55 @@ impl<'a> Scope<'a> {
     fn insertion(&self, source: &str, lines: &[String]) -> TextEdit {
         match *self {
             Scope::Block(block) => insert_lines(source, block, lines),
-            Scope::Document(_) => {
+            Scope::Document(document) => {
                 let newline = detect_newline(source);
                 let body = lines
                     .iter()
                     .map(|line| format!("{line}{newline}"))
                     .collect::<String>();
-                let lead = if source.is_empty() || source.ends_with('\n') {
-                    String::new()
-                } else {
-                    newline.to_string()
-                };
 
-                TextEdit::new(
-                    Span::new(source.len(), source.len()),
-                    format!("{lead}{body}"),
-                )
+                // A block the file never closed runs to the end, so anything
+                // appended after it would land inside that block instead of at
+                // top level. New assignments go in front of it.
+                match unclosed_tail(source, document) {
+                    Some(offset) => TextEdit::new(Span::new(offset, offset), body),
+                    None => {
+                        let lead = if source.is_empty() || source.ends_with('\n') {
+                            String::new()
+                        } else {
+                            newline.to_string()
+                        };
+
+                        TextEdit::new(
+                            Span::new(source.len(), source.len()),
+                            format!("{lead}{body}"),
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+/// Start of the line owning a top-level block that runs to the end of the file
+/// without being closed, if there is one.
+fn unclosed_tail(source: &str, document: &Document) -> Option<usize> {
+    if document.unclosed_blocks == 0 {
+        return None;
+    }
+
+    let last = document.items.last()?;
+    let (start, block) = match last {
+        super::parser::Item::Pair(pair) => match &pair.value {
+            Value::Block(block) => (pair.span.start, block),
+            Value::Scalar(_) => return None,
+        },
+        super::parser::Item::Value(Value::Block(block)) => (block.span.start, block),
+        super::parser::Item::Value(Value::Scalar(_)) => return None,
+    };
+
+    // The block was closed at end of file rather than by a brace.
+    (block.span.end >= source.len()).then(|| line_start(source, start))
 }
 
 fn scalar_change(source: &str, scope: Scope<'_>, key: &str, value: &str) -> Change {

@@ -416,6 +416,31 @@ mod tests {
     }
 
     #[test]
+    fn a_new_field_stays_outside_an_unclosed_block() {
+        // Shaped like the country file the game ships unclosed: appending at the
+        // end of the file would put the assignment inside the dangling block.
+        let path = write_temp(
+            "unclosed.txt",
+            "capital = 1\n\n1939.1.1 = {\n\tset_convoys = 10\n",
+        );
+        let country = read(&path).expect("reads");
+        assert_eq!(country.unclosed_blocks, 1);
+
+        let mut change = update_from(&country);
+        change.stability = "0.7".into();
+
+        update(&path, &change).expect("updates");
+
+        let text = std::fs::read_to_string(&path).expect("read back");
+        let stability = text.find("set_stability").expect("written");
+        let block = text.find("1939.1.1").expect("block kept");
+        assert!(
+            stability < block,
+            "the new field landed inside the block:\n{text}"
+        );
+    }
+
+    #[test]
     fn a_no_op_save_changes_nothing() {
         let path = write_temp("noop.txt", COUNTRY);
         let country = read(&path).expect("reads");
