@@ -4,7 +4,7 @@
 //! so offsets gathered during parsing stay valid until the very last one lands.
 
 use super::lexer::{needs_quotes, quote};
-use super::parser::{Block, Items, Pair, Value};
+use super::parser::{Block, Document, Items, Pair, Value};
 use super::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -142,9 +142,99 @@ enum Change {
     Nothing,
 }
 
-fn scalar_change(source: &str, block: &Block, key: &str, value: &str) -> Change {
+/// What a set of edits is being applied to.
+///
+/// Focus and state definitions sit inside a block, while a country history file
+/// is a bare list of assignments at the top level of the file. The two differ
+/// only in where a new line goes and how far it is indented.
+#[derive(Clone, Copy)]
+enum Scope<'a> {
+    Block(&'a Block),
+    Document(&'a Document),
+}
+
+impl<'a> Scope<'a> {
+    fn find(&self, key: &str) -> Option<&'a Pair> {
+        match *self {
+            Scope::Block(block) => block.find(key),
+            Scope::Document(document) => document.find(key),
+        }
+    }
+
+    fn find_all(&self, key: &str) -> Vec<&'a Pair> {
+        match *self {
+            Scope::Block(block) => block.find_all(key),
+            Scope::Document(document) => document.find_all(key),
+        }
+    }
+
+    /// Indentation a new line in this scope should carry.
+    fn child_indent(&self, source: &str) -> String {
+        match *self {
+            Scope::Block(block) => child_indent(source, block),
+            Scope::Document(_) => String::new(),
+        }
+    }
+
+    /// One edit appending `lines`, before the closing brace of a block or at
+    /// the end of a file.
+    fn insertion(&self, source: &str, lines: &[String]) -> TextEdit {
+        match *self {
+            Scope::Block(block) => insert_lines(source, block, lines),
+            Scope::Document(document) => {
+                let newline = detect_newline(source);
+                let body = lines
+                    .iter()
+                    .map(|line| format!("{line}{newline}"))
+                    .collect::<String>();
+
+                // A block the file never closed runs to the end, so anything
+                // appended after it would land inside that block instead of at
+                // top level. New assignments go in front of it.
+                match unclosed_tail(source, document) {
+                    Some(offset) => TextEdit::new(Span::new(offset, offset), body),
+                    None => {
+                        let lead = if source.is_empty() || source.ends_with('\n') {
+                            String::new()
+                        } else {
+                            newline.to_string()
+                        };
+
+                        TextEdit::new(
+                            Span::new(source.len(), source.len()),
+                            format!("{lead}{body}"),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Start of the line owning a top-level block that runs to the end of the file
+/// without being closed, if there is one.
+fn unclosed_tail(source: &str, document: &Document) -> Option<usize> {
+    if document.unclosed_blocks == 0 {
+        return None;
+    }
+
+    let last = document.items.last()?;
+    let (start, block) = match last {
+        super::parser::Item::Pair(pair) => match &pair.value {
+            Value::Block(block) => (pair.span.start, block),
+            Value::Scalar(_) => return None,
+        },
+        super::parser::Item::Value(Value::Block(block)) => (block.span.start, block),
+        super::parser::Item::Value(Value::Scalar(_)) => return None,
+    };
+
+    // The block was closed at end of file rather than by a brace.
+    (block.span.end >= source.len()).then(|| line_start(source, start))
+}
+
+fn scalar_change(source: &str, scope: Scope<'_>, key: &str, value: &str) -> Change {
     let trimmed = value.trim();
-    let existing = block.find(key);
+    let existing = scope.find(key);
 
     if trimmed.is_empty() {
         return match existing {
@@ -160,14 +250,25 @@ fn scalar_change(source: &str, block: &Block, key: &str, value: &str) -> Change 
     };
 
     match existing {
+        // Nothing to do when the file already says this.
+        Some(pair)
+            if pair
+                .value
+                .as_scalar()
+                .map(|scalar| scalar.value())
+                .as_deref()
+                == Some(trimmed) =>
+        {
+            Change::Nothing
+        }
         Some(pair) => Change::Replace(TextEdit::new(pair.value.span(), raw)),
         None => Change::Add(format!("{key} = {raw}")),
     }
 }
 
-fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change {
+fn block_change(source: &str, scope: Scope<'_>, key: &str, content: &str) -> Change {
     let trimmed = content.trim();
-    let existing = block.find(key);
+    let existing = scope.find(key);
     let newline = detect_newline(source);
 
     if trimmed.is_empty() {
@@ -179,6 +280,11 @@ fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change
 
     match existing {
         Some(pair) => {
+            // An unchanged body is left alone so its comments survive.
+            if block_body(source, &pair.value) == trimmed {
+                return Change::Nothing;
+            }
+
             let indent = indent_at(source, pair.span.start);
             Change::Replace(TextEdit::new(
                 pair.value.span(),
@@ -186,7 +292,7 @@ fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change
             ))
         }
         None => {
-            let indent = child_indent(source, block);
+            let indent = scope.child_indent(source);
             Change::Add(format!(
                 "{key} = {}",
                 format_block(trimmed, &indent, newline)
@@ -203,7 +309,7 @@ fn block_change(source: &str, block: &Block, key: &str, content: &str) -> Change
 /// only the first and silently dropping the rest.
 pub struct BlockEditor<'a> {
     source: &'a str,
-    block: &'a Block,
+    scope: Scope<'a>,
     edits: Vec<TextEdit>,
     additions: Vec<String>,
 }
@@ -212,7 +318,18 @@ impl<'a> BlockEditor<'a> {
     pub fn new(source: &'a str, block: &'a Block) -> Self {
         Self {
             source,
-            block,
+            scope: Scope::Block(block),
+            edits: Vec::new(),
+            additions: Vec::new(),
+        }
+    }
+
+    /// Edits the top level of a file whose assignments are not inside braces,
+    /// as country history files are.
+    pub fn for_document(source: &'a str, document: &'a Document) -> Self {
+        Self {
+            source,
+            scope: Scope::Document(document),
             edits: Vec::new(),
             additions: Vec::new(),
         }
@@ -222,21 +339,68 @@ impl<'a> BlockEditor<'a> {
         self.source
     }
 
-    pub fn block(&self) -> &'a Block {
-        self.block
+    pub fn block(&self) -> Option<&'a Block> {
+        match self.scope {
+            Scope::Block(block) => Some(block),
+            Scope::Document(_) => None,
+        }
+    }
+
+    pub fn find_all(&self, key: &str) -> Vec<&'a Pair> {
+        self.scope.find_all(key)
     }
 
     /// Sets `key = value`, adding the key when it is missing and deleting it
     /// when `value` is empty.
     pub fn set_scalar(&mut self, key: &str, value: &str) -> &mut Self {
-        let change = scalar_change(self.source, self.block, key, value);
+        let change = scalar_change(self.source, self.scope, key, value);
         self.apply(change)
     }
 
     /// Sets `key = { ... }` with `content` as the body.
     pub fn set_block(&mut self, key: &str, content: &str) -> &mut Self {
-        let change = block_change(self.source, self.block, key, content);
+        let change = block_change(self.source, self.scope, key, content);
         self.apply(change)
+    }
+
+    /// Writes `key = value` once per entry, reusing the assignments already
+    /// there. Used for keys a file repeats, such as `add_core_of`.
+    pub fn set_repeated_scalars(&mut self, key: &str, values: &[String]) -> &mut Self {
+        let wanted: Vec<String> = values
+            .iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect();
+        let existing = self.scope.find_all(key);
+
+        for (value, pair) in wanted.iter().zip(existing.iter()) {
+            let current = pair.value.as_scalar().map(|scalar| scalar.value());
+            if current.as_deref() == Some(value.as_str()) {
+                continue;
+            }
+
+            let raw = if needs_quotes(value) {
+                quote(value)
+            } else {
+                value.clone()
+            };
+            self.edits.push(TextEdit::new(pair.value.span(), raw));
+        }
+
+        for pair in existing.iter().skip(wanted.len()) {
+            self.edits.extend(remove_pair(self.source, pair));
+        }
+
+        for value in wanted.iter().skip(existing.len()) {
+            let raw = if needs_quotes(value) {
+                quote(value)
+            } else {
+                value.clone()
+            };
+            self.additions.push(format!("{key} = {raw}"));
+        }
+
+        self
     }
 
     pub fn edit(&mut self, edit: TextEdit) -> &mut Self {
@@ -267,7 +431,7 @@ impl<'a> BlockEditor<'a> {
 
     pub fn finish(mut self) -> Vec<TextEdit> {
         if !self.additions.is_empty() {
-            let insertion = insert_lines(self.source, self.block, &self.additions);
+            let insertion = self.scope.insertion(self.source, &self.additions);
             self.edits.push(insertion);
         }
         self.edits

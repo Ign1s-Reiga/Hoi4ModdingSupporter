@@ -16,6 +16,9 @@ import {
 import type { Focus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+/** Reset and first paint both use this. */
+const DEFAULT_ZOOM = 1;
+
 interface FocusCanvasProps {
   focuses: Focus[];
   selectedId: string | null;
@@ -31,7 +34,8 @@ interface FocusCanvasProps {
  * the `x`/`y` a modder would otherwise count out by hand.
  */
 export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanvasProps) {
-  const [zoom, setZoom] = React.useState(0.85);
+  // The canvas grid matches the game at 1:1, so that is where it starts.
+  const [zoom, setZoom] = React.useState(DEFAULT_ZOOM);
   const [pan, setPan] = React.useState({ x: 24, y: 24 });
   const [drag, setDrag] = React.useState<{ id: string; x: number; y: number } | null>(null);
   const viewport = React.useRef<HTMLDivElement>(null);
@@ -240,7 +244,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
           type='button'
           className='ml-1 rounded px-1 hover:bg-surface-raised hover:text-foreground'
           onClick={() => {
-            setZoom(0.85);
+            setZoom(DEFAULT_ZOOM);
             setPan({ x: 24, y: 24 });
           }}
         >

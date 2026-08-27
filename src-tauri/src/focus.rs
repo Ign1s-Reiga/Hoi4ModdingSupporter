@@ -335,14 +335,16 @@ pub fn delete(path: &str, focus_id: &str) -> AppResult<FocusFile> {
 /// already there so untouched groups keep their formatting.
 fn set_reference_groups(editor: &mut BlockEditor<'_>, key: &str, groups: &[Vec<String>]) {
     let source = editor.source();
-    let block = editor.block();
+    let Some(block) = editor.block() else {
+        return;
+    };
 
     let wanted: Vec<Vec<String>> = groups
         .iter()
         .map(|group| normalise_ids(group))
         .filter(|group| !group.is_empty())
         .collect();
-    let existing = block.find_all(key);
+    let existing = editor.find_all(key);
     let newline = detect_newline(source);
 
     for (group, pair) in wanted.iter().zip(existing.iter()) {

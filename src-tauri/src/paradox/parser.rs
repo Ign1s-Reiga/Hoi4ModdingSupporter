@@ -95,6 +95,10 @@ pub enum Item {
 #[derive(Debug, Clone)]
 pub struct Document {
     pub items: Vec<Item>,
+    /// Blocks the file never closed. Hearts of Iron IV accepts these — one of
+    /// its own country files ends mid-block — so they are closed at the end of
+    /// the file rather than rejected.
+    pub unclosed_blocks: usize,
 }
 
 /// Shared lookup helpers over a list of items.
@@ -161,15 +165,20 @@ pub fn parse(source: &str) -> Result<Document, ParseError> {
         tokens,
         position: 0,
         source_len: source.len(),
+        unclosed_blocks: 0,
     };
     let items = parser.parse_items(false)?;
-    Ok(Document { items })
+    Ok(Document {
+        items,
+        unclosed_blocks: parser.unclosed_blocks,
+    })
 }
 
 struct Parser {
     tokens: Vec<Token>,
     position: usize,
     source_len: usize,
+    unclosed_blocks: usize,
 }
 
 impl Parser {
@@ -198,15 +207,9 @@ impl Parser {
 
         loop {
             match self.peek() {
-                None => {
-                    if inside_block {
-                        return Err(ParseError {
-                            message: "unexpected end of file, a closing brace is missing".into(),
-                            offset: self.source_len,
-                        });
-                    }
-                    break;
-                }
+                // A block left open at end of file is closed here, the way the
+                // game does, instead of failing the whole file.
+                None => break,
                 Some(token) if token.kind == TokenKind::CloseBrace => {
                     if inside_block {
                         break;
@@ -276,13 +279,17 @@ impl Parser {
     fn parse_block(&mut self, open: &Token) -> Result<Block, ParseError> {
         let items = self.parse_items(true)?;
         let inner_end = self.current_offset();
-        let close = self.advance().ok_or_else(|| ParseError {
-            message: "unexpected end of file, a closing brace is missing".into(),
-            offset: self.source_len,
-        })?;
+
+        let end = match self.advance() {
+            Some(close) => close.span.end,
+            None => {
+                self.unclosed_blocks += 1;
+                self.source_len
+            }
+        };
 
         Ok(Block {
-            span: Span::new(open.span.start, close.span.end),
+            span: Span::new(open.span.start, end),
             inner: Span::new(open.span.end, inner_end),
             items,
         })

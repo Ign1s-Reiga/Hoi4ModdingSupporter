@@ -9,6 +9,9 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import type {
+  CountryHistory,
+  CountryHistoryInfo,
+  CountryHistoryUpdate,
   Encoding,
   FocusFile,
   FocusUpdate,
@@ -18,6 +21,8 @@ import type {
   ModProject,
   ScanResult,
   Settings,
+  StateFile,
+  StateUpdate,
   TextFile,
 } from './types';
 
@@ -68,6 +73,18 @@ export const api = {
   addFocus: (path: string, treeId: string, focus: FocusUpdate) => call<FocusFile>('add_focus', { path, treeId, focus }),
 
   deleteFocus: (path: string, focusId: string) => call<FocusFile>('delete_focus', { path, focusId }),
+
+  readStateFile: (path: string) => call<StateFile>('read_state_file', { path }),
+
+  updateState: (path: string, stateId: string, update: StateUpdate) =>
+    call<StateFile>('update_state', { path, stateId, update }),
+
+  listCountryHistory: (folderPath: string) => call<CountryHistoryInfo[]>('list_country_history', { folderPath }),
+
+  readCountryHistory: (path: string) => call<CountryHistory>('read_country_history', { path }),
+
+  updateCountryHistory: (path: string, update: CountryHistoryUpdate) =>
+    call<CountryHistory>('update_country_history', { path, update }),
 
   listLocalisationFiles: (folderPath: string) =>
     call<LocalisationFileInfo[]>('list_localisation_files', { folderPath }),
