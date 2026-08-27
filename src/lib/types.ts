@@ -271,3 +271,27 @@ export function toCountryHistoryUpdate(country: CountryHistory): CountryHistoryU
     popularities: country.popularities,
   };
 }
+
+/** How the province map is coloured. */
+export type MapMode = 'states' | 'owners';
+
+export interface MapSummary {
+  width: number;
+  height: number;
+  provinceCount: number;
+  stateCount: number;
+  /** Land provinces no state claims. */
+  unassignedLand: number;
+}
+
+export interface ProvincePick {
+  provinceId: number;
+  kind: string;
+  terrain: string;
+  /** Empty when no state lists this province. */
+  stateId: string;
+  stateName: string;
+  owner: string;
+  /** File the state is defined in. */
+  statePath: string;
+}

@@ -3,13 +3,16 @@ mod country_history;
 mod error;
 mod focus;
 mod localisation;
+mod map;
 mod paradox;
 mod project;
 mod settings;
 mod state;
 mod text_file;
 
-use tauri::AppHandle;
+use std::sync::Mutex;
+
+use tauri::{AppHandle, State};
 
 use error::{AppError, AppResult};
 
@@ -182,6 +185,68 @@ fn update_country_history(
     country_history::update(&path, &update)
 }
 
+/// The decoded province map, kept between calls because rebuilding it means
+/// reading a forty megabyte bitmap and thirteen million pixels.
+#[derive(Default)]
+struct MapCache(Mutex<Option<map::MapData>>);
+
+/// Runs `action` against the map of `folder`, loading it if needed.
+fn with_map<T>(
+    app: &AppHandle,
+    cache: &MapCache,
+    folder: &str,
+    action: impl FnOnce(&map::MapData) -> AppResult<T>,
+) -> AppResult<T> {
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the map cache was left in a broken state"))?;
+
+    let needs_load = slot
+        .as_ref()
+        .map(|data| data.folder() != folder)
+        .unwrap_or(true);
+    if needs_load {
+        let game_root = settings::load(app)?.game_root_path;
+        *slot = Some(map::load(folder, &game_root)?);
+    }
+
+    let data = slot
+        .as_ref()
+        .ok_or_else(|| AppError::message("the map failed to load"))?;
+    action(data)
+}
+
+#[tauri::command]
+fn load_map(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+) -> AppResult<map::MapSummary> {
+    with_map(&app, &cache, &folder_path, |data| Ok(data.summary()))
+}
+
+#[tauri::command]
+fn render_map(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+    mode: map::MapMode,
+) -> AppResult<String> {
+    with_map(&app, &cache, &folder_path, |data| data.render(mode))
+}
+
+#[tauri::command]
+fn pick_province(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+    x: u32,
+    y: u32,
+) -> AppResult<Option<map::ProvincePick>> {
+    with_map(&app, &cache, &folder_path, |data| Ok(data.pick(x, y)))
+}
+
 #[tauri::command]
 fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<String> {
     assets::image_data_url(&path, max_dimension)
@@ -206,6 +271,7 @@ fn validate_game_root(path: String) -> AppResult<bool> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(MapCache::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -228,6 +294,9 @@ pub fn run() {
             list_country_history,
             read_country_history,
             update_country_history,
+            load_map,
+            render_map,
+            pick_province,
             list_localisation_files,
             read_localisation_file,
             write_localisation_file,

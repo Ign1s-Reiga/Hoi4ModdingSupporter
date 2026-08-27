@@ -1,28 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { FileText, Loader2, Map, Save, Search, TriangleAlert } from 'lucide-react';
+import { Loader2, Map, Save, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { MapCanvas, type MapPickPoint } from '@/components/map-canvas';
 import { Button } from '@/components/ui/button';
-import { CodeInput, Field, Input, Label, Textarea } from '@/components/ui/form';
-import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
+import { CodeInput, Field, Label, Textarea } from '@/components/ui/form';
+import { Badge, EmptyState, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
 import { confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useProvinceMap } from '@/lib/use-map';
 import { useUnsavedIn } from '@/lib/use-unsaved';
-import { toStateUpdate, type ProjectFile, type StateFile, type StateUpdate } from '@/lib/types';
-import { isInFolder } from '@/lib/utils';
-
-const STATE_FOLDER = 'history/states';
-/** A total conversion ships a file per state, so the list has to be filtered. */
-const MAX_ROWS = 300;
+import { toStateUpdate, type ProvincePick, type StateFile, type StateUpdate } from '@/lib/types';
 
 export default function StatesPage() {
-  const { scan, setError } = useAppStore();
+  const setError = useAppStore((state) => state.setError);
+  const map = useProvinceMap('states');
 
-  const [search, setSearch] = React.useState('');
-  const [selectedFile, setSelectedFile] = React.useState<ProjectFile | null>(null);
+  const [picked, setPicked] = React.useState<ProvincePick | null>(null);
+  const [marker, setMarker] = React.useState<MapPickPoint | null>(null);
   const [stateFile, setStateFile] = React.useState<StateFile | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<StateUpdate | null>(null);
@@ -34,38 +32,33 @@ export default function StatesPage() {
 
   useUnsavedIn('state editor', isDirty);
 
-  const files = React.useMemo(
-    () => (scan?.files ?? []).filter((file) => isInFolder(file.relativePath, STATE_FOLDER) && file.extension === 'txt'),
-    [scan],
-  );
-
-  const matches = React.useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return files;
-    return files.filter((file) => file.name.toLowerCase().includes(needle));
-  }, [files, search]);
-
   const states = stateFile?.states ?? [];
   const selected = states.find((state) => state.id === selectedId) ?? null;
 
-  async function openFile(file: ProjectFile) {
+  async function onPick(point: MapPickPoint) {
     if (isDirty && !(await confirmDiscard('Discard unsaved state changes?'))) return;
 
     const request = ++openRequest.current;
-    setSelectedFile(file);
+    setMarker(point);
     setIsLoading(true);
     try {
-      const loaded = await api.readStateFile(file.fullPath);
+      const hit = await map.pick(point.x, point.y);
       if (openRequest.current !== request) return;
+      setPicked(hit);
 
-      applyFile(loaded, loaded.states[0]?.id ?? null);
+      if (!hit?.statePath) {
+        setStateFile(null);
+        setSelectedId(null);
+        setDraft(null);
+        return;
+      }
+
+      const loaded = await api.readStateFile(hit.statePath);
+      if (openRequest.current !== request) return;
+      applyFile(loaded, hit.stateId || (loaded.states[0]?.id ?? null));
     } catch (error) {
       if (openRequest.current !== request) return;
-
       setError(describeError(error));
-      setStateFile(null);
-      setSelectedId(null);
-      setDraft(null);
     } finally {
       if (openRequest.current === request) setIsLoading(false);
     }
@@ -79,27 +72,17 @@ export default function StatesPage() {
     setIsDirty(false);
   }
 
-  async function selectState(id: string) {
-    if (id === selectedId) return;
-    if (isDirty && !(await confirmDiscard('Discard unsaved state changes?'))) return;
-
-    const state = states.find((entry) => entry.id === id);
-    setSelectedId(id);
-    setDraft(state ? toStateUpdate(state) : null);
-    setIsDirty(false);
-  }
-
   function patch(changes: Partial<StateUpdate>) {
     setDraft((current) => (current ? { ...current, ...changes } : current));
     setIsDirty(true);
   }
 
   async function save() {
-    if (!selectedFile || !draft || !selectedId) return;
+    if (!stateFile || !draft || !selectedId) return;
 
     setIsSaving(true);
     try {
-      const updated = await api.updateState(selectedFile.fullPath, selectedId, draft);
+      const updated = await api.updateState(stateFile.path, selectedId, draft);
       applyFile(updated, draft.id || selectedId);
       toast.success(`Saved state ${draft.id || selectedId}`);
     } catch (error) {
@@ -112,51 +95,28 @@ export default function StatesPage() {
   }
 
   return (
-    <div className='grid h-full grid-cols-[minmax(15rem,20rem)_1fr] gap-3 p-3'>
+    <div className='grid h-full grid-cols-[minmax(0,1fr)_24rem] gap-3 p-3'>
       <Panel>
-        <PanelHeader title='State files' subtitle={`${matches.length} of ${files.length} in ${STATE_FOLDER}`} />
-        <div className='border-b border-border p-2'>
-          <div className='relative'>
-            <Search className='pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted' />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder='Filter by file name'
-              className='pl-8'
-            />
-          </div>
-        </div>
-        <PanelBody>
-          {files.length === 0 ? (
-            <EmptyState
-              icon={<Map />}
-              title='No state files'
-              description={`This mod has no .txt files under ${STATE_FOLDER}.`}
-            />
-          ) : matches.length === 0 ? (
-            <EmptyState title='Nothing here' description='No state file matches that filter.' />
+        <PanelHeader
+          title='Province map'
+          subtitle={
+            map.summary
+              ? `${map.summary.stateCount} states · ${map.summary.provinceCount} provinces${map.summary.unassignedLand > 0 ? ` · ${map.summary.unassignedLand} land provinces with no state` : ''}`
+              : 'Coloured by state'
+          }
+        />
+        <PanelBody className='overflow-hidden p-0'>
+          {map.error ? (
+            <EmptyState icon={<Map />} title='The map could not be loaded' description={map.error} />
           ) : (
-            <>
-              <ul className='py-1'>
-                {matches.slice(0, MAX_ROWS).map((file) => (
-                  <li key={file.fullPath}>
-                    <ListRow
-                      active={selectedFile?.fullPath === file.fullPath}
-                      onClick={() => void openFile(file)}
-                      title={file.relativePath}
-                    >
-                      <FileText className='size-3.5 shrink-0 opacity-70' />
-                      <span className='truncate'>{file.name}</span>
-                    </ListRow>
-                  </li>
-                ))}
-              </ul>
-              {matches.length > MAX_ROWS ? (
-                <p className='px-3 py-2 text-xs text-muted'>
-                  Showing the first {MAX_ROWS} of {matches.length}. Narrow the filter to see the rest.
-                </p>
-              ) : null}
-            </>
+            <MapCanvas
+              source={map.source}
+              width={map.summary?.width ?? 0}
+              height={map.summary?.height ?? 0}
+              marker={marker}
+              onPick={(point) => void onPick(point)}
+              isBusy={map.isLoading}
+            />
           )}
         </PanelBody>
       </Panel>
@@ -164,14 +124,18 @@ export default function StatesPage() {
       <Panel>
         <PanelHeader
           title={selected ? `${selected.name || 'unnamed state'} · id ${selected.id}` : 'No state selected'}
-          subtitle={selectedFile ? selectedFile.relativePath : 'Pick a file from the list'}
+          subtitle={
+            picked
+              ? `province ${picked.provinceId} · ${picked.kind}${picked.terrain ? ` · ${picked.terrain}` : ''}`
+              : 'Click a province on the map'
+          }
           actions={
             selected ? (
               <>
                 {stateFile && stateFile.unclosedBlocks > 0 ? (
                   <Badge tone='danger' title='The game tolerates this, but a brace is missing'>
                     <TriangleAlert className='size-3' />
-                    Unclosed block
+                    Unclosed
                   </Badge>
                 ) : null}
                 {isDirty ? <Badge tone='accent'>Unsaved</Badge> : null}
@@ -192,28 +156,15 @@ export default function StatesPage() {
           ) : !draft ? (
             <EmptyState
               icon={<Map />}
-              title='State editor'
-              description='Open a file from history/states to edit its ownership, cores, victory points and buildings.'
+              title={picked ? 'No state owns this province' : 'State editor'}
+              description={
+                picked
+                  ? `Province ${picked.provinceId} is ${picked.kind} and no state lists it.`
+                  : 'Click a province to open the state that holds it.'
+              }
             />
           ) : (
-            <>
-              {states.length > 1 ? (
-                <div className='mb-3 flex flex-wrap gap-1.5'>
-                  {states.map((state) => (
-                    <Button
-                      key={state.id}
-                      size='sm'
-                      variant={state.id === selectedId ? 'primary' : 'default'}
-                      onClick={() => void selectState(state.id)}
-                    >
-                      {state.id}
-                    </Button>
-                  ))}
-                </div>
-              ) : null}
-
-              <StateForm draft={draft} onChange={patch} />
-            </>
+            <StateForm draft={draft} onChange={patch} />
           )}
         </PanelBody>
       </Panel>

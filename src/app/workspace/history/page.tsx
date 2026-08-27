@@ -1,31 +1,34 @@
 'use client';
 
 import * as React from 'react';
-import { Landmark, Loader2, Save, Search, TriangleAlert, X } from 'lucide-react';
+import { Landmark, Loader2, Save, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { MapCanvas, type MapPickPoint } from '@/components/map-canvas';
 import { Button } from '@/components/ui/button';
-import { CodeInput, Field, Input, Label } from '@/components/ui/form';
-import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
+import { CodeInput, Field, Label } from '@/components/ui/form';
+import { Badge, EmptyState, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
 import { confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useProvinceMap } from '@/lib/use-map';
 import { useUnsavedIn } from '@/lib/use-unsaved';
 import {
   toCountryHistoryUpdate,
   type CountryHistory,
   type CountryHistoryInfo,
   type CountryHistoryUpdate,
+  type ProvincePick,
 } from '@/lib/types';
 
-const MAX_ROWS = 300;
-
 export default function CountryHistoryPage() {
-  const { project, setError } = useAppStore();
+  const project = useAppStore((state) => state.project);
+  const setError = useAppStore((state) => state.setError);
+  const map = useProvinceMap('owners');
 
   const [listing, setListing] = React.useState<{ folder: string; files: CountryHistoryInfo[] } | null>(null);
-  const [search, setSearch] = React.useState('');
-  const [selected, setSelected] = React.useState<CountryHistoryInfo | null>(null);
+  const [picked, setPicked] = React.useState<ProvincePick | null>(null);
+  const [marker, setMarker] = React.useState<MapPickPoint | null>(null);
   const [country, setCountry] = React.useState<CountryHistory | null>(null);
   const [draft, setDraft] = React.useState<CountryHistoryUpdate | null>(null);
   const [isDirty, setIsDirty] = React.useState(false);
@@ -37,7 +40,6 @@ export default function CountryHistoryPage() {
 
   const folder = project?.folderPath ?? '';
   const files = React.useMemo(() => (listing?.folder === folder ? listing.files : []), [folder, listing]);
-  const isListing = Boolean(folder) && listing?.folder !== folder;
 
   React.useEffect(() => {
     if (!folder) return;
@@ -59,19 +61,25 @@ export default function CountryHistoryPage() {
     };
   }, [folder, setError]);
 
-  const matches = React.useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return files;
-    return files.filter((file) => file.fileName.toLowerCase().includes(needle));
-  }, [files, search]);
-
-  async function openCountry(file: CountryHistoryInfo) {
+  async function onPick(point: MapPickPoint) {
     if (isDirty && !(await confirmDiscard('Discard unsaved country changes?'))) return;
 
     const request = ++openRequest.current;
-    setSelected(file);
+    setMarker(point);
     setIsLoading(true);
     try {
+      const hit = await map.pick(point.x, point.y);
+      if (openRequest.current !== request) return;
+      setPicked(hit);
+
+      // The map knows the owning tag; the country file is found by that tag.
+      const file = hit?.owner ? files.find((entry) => entry.tag === hit.owner) : undefined;
+      if (!file) {
+        setCountry(null);
+        setDraft(null);
+        return;
+      }
+
       const loaded = await api.readCountryHistory(file.path);
       if (openRequest.current !== request) return;
 
@@ -80,10 +88,7 @@ export default function CountryHistoryPage() {
       setIsDirty(false);
     } catch (error) {
       if (openRequest.current !== request) return;
-
       setError(describeError(error));
-      setCountry(null);
-      setDraft(null);
     } finally {
       if (openRequest.current === request) setIsLoading(false);
     }
@@ -95,11 +100,11 @@ export default function CountryHistoryPage() {
   }
 
   async function save() {
-    if (!selected || !draft) return;
+    if (!country || !draft) return;
 
     setIsSaving(true);
     try {
-      const updated = await api.updateCountryHistory(selected.path, draft);
+      const updated = await api.updateCountryHistory(country.path, draft);
       setCountry(updated);
       setDraft(toCountryHistoryUpdate(updated));
       setIsDirty(false);
@@ -114,54 +119,26 @@ export default function CountryHistoryPage() {
   }
 
   return (
-    <div className='grid h-full grid-cols-[minmax(15rem,20rem)_1fr] gap-3 p-3'>
+    <div className='grid h-full grid-cols-[minmax(0,1fr)_24rem] gap-3 p-3'>
       <Panel>
-        <PanelHeader title='Countries' subtitle={`${matches.length} of ${files.length} in history/countries`} />
-        <div className='border-b border-border p-2'>
-          <div className='relative'>
-            <Search className='pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted' />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder='Filter by tag or name'
-              className='pl-8'
-            />
-          </div>
-        </div>
-        <PanelBody>
-          {isListing ? (
-            <div className='flex items-center gap-2 p-4 text-sm text-muted'>
-              <Loader2 className='size-4 animate-spin' />
-              Reading countries…
-            </div>
-          ) : files.length === 0 ? (
-            <EmptyState
-              icon={<Landmark />}
-              title='No country files'
-              description='This mod has no .txt files under history/countries.'
-            />
+        <PanelHeader
+          title='Starting ownership'
+          subtitle={
+            map.summary ? `${map.summary.stateCount} states painted in their owner colours` : 'Coloured by owner'
+          }
+        />
+        <PanelBody className='overflow-hidden p-0'>
+          {map.error ? (
+            <EmptyState icon={<Landmark />} title='The map could not be loaded' description={map.error} />
           ) : (
-            <>
-              <ul className='py-1'>
-                {matches.slice(0, MAX_ROWS).map((file) => (
-                  <li key={file.path}>
-                    <ListRow
-                      active={selected?.path === file.path}
-                      onClick={() => void openCountry(file)}
-                      title={file.relativePath}
-                    >
-                      <span className='w-10 shrink-0 font-mono text-[0.6875rem] text-muted'>{file.tag}</span>
-                      <span className='truncate'>{file.fileName}</span>
-                    </ListRow>
-                  </li>
-                ))}
-              </ul>
-              {matches.length > MAX_ROWS ? (
-                <p className='px-3 py-2 text-xs text-muted'>
-                  Showing the first {MAX_ROWS} of {matches.length}. Narrow the filter to see the rest.
-                </p>
-              ) : null}
-            </>
+            <MapCanvas
+              source={map.source}
+              width={map.summary?.width ?? 0}
+              height={map.summary?.height ?? 0}
+              marker={marker}
+              onPick={(point) => void onPick(point)}
+              isBusy={map.isLoading}
+            />
           )}
         </PanelBody>
       </Panel>
@@ -170,9 +147,9 @@ export default function CountryHistoryPage() {
         <PanelHeader
           title={country ? `${country.tag} · ${country.fileName}` : 'No country selected'}
           subtitle={
-            country
-              ? 'Only the fields below are written; technology, characters and if blocks are left alone'
-              : 'Pick a country from the list'
+            picked
+              ? `province ${picked.provinceId}${picked.stateName ? ` · ${picked.stateName}` : ''}${picked.owner ? ` · owned by ${picked.owner}` : ' · unowned'}`
+              : 'Click a province to open the country that owns it'
           }
           actions={
             draft ? (
@@ -180,7 +157,7 @@ export default function CountryHistoryPage() {
                 {country && country.unclosedBlocks > 0 ? (
                   <Badge tone='danger' title='The game tolerates this, but a brace is missing'>
                     <TriangleAlert className='size-3' />
-                    Unclosed block
+                    Unclosed
                   </Badge>
                 ) : null}
                 {isDirty ? <Badge tone='accent'>Unsaved</Badge> : null}
@@ -201,8 +178,14 @@ export default function CountryHistoryPage() {
           ) : !draft ? (
             <EmptyState
               icon={<Landmark />}
-              title='Country setup editor'
-              description='Open a country to edit where it starts: capital, order of battle, research slots, politics and party support.'
+              title={picked ? 'No country file for this province' : 'Country setup editor'}
+              description={
+                picked
+                  ? picked.owner
+                    ? `${picked.owner} owns this state but has no file under history/countries.`
+                    : 'No state owns this province, so there is no country to edit.'
+                  : 'Click a province to edit where its owner starts: capital, order of battle, politics and party support.'
+              }
             />
           ) : (
             <CountryForm draft={draft} onChange={patch} />

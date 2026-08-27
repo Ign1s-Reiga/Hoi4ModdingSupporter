@@ -18,7 +18,10 @@ import type {
   LocalisationEntry,
   LocalisationFile,
   LocalisationFileInfo,
+  MapMode,
+  MapSummary,
   ModProject,
+  ProvincePick,
   ScanResult,
   Settings,
   StateFile,
@@ -73,6 +76,14 @@ export const api = {
   addFocus: (path: string, treeId: string, focus: FocusUpdate) => call<FocusFile>('add_focus', { path, treeId, focus }),
 
   deleteFocus: (path: string, focusId: string) => call<FocusFile>('delete_focus', { path, focusId }),
+
+  /** Decodes provinces.bmp and joins it to the state files. Cached backend side. */
+  loadMap: (folderPath: string) => call<MapSummary>('load_map', { folderPath }),
+
+  renderMap: (folderPath: string, mode: MapMode) => call<string>('render_map', { folderPath, mode }),
+
+  pickProvince: (folderPath: string, x: number, y: number) =>
+    call<ProvincePick | null>('pick_province', { folderPath, x, y }),
 
   readStateFile: (path: string) => call<StateFile>('read_state_file', { path }),
 
