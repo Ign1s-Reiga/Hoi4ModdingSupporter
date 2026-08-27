@@ -10,7 +10,7 @@ pub mod parser;
 
 use serde::{Deserialize, Serialize};
 
-pub use parser::{parse, Block, Item, Items, Pair, ParseError, Value};
+pub use parser::{parse, Block, Document, Item, Items, Pair, ParseError, Value};
 
 /// A byte range inside a source file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,9 +109,14 @@ focus_tree = {
     }
 
     #[test]
-    fn reports_unbalanced_braces() {
-        let error = parse("focus = { id = a").expect_err("unbalanced braces fail");
-        assert!(error.message.contains("closing brace"));
+    fn closes_an_unclosed_block_at_end_of_file() {
+        // A shipped Hearts of Iron IV country file ends mid-block and the game
+        // loads it, so refusing to parse one would refuse a file that works.
+        let document = parse("focus = { id = a").expect("parses leniently");
+
+        assert_eq!(document.unclosed_blocks, 1);
+        let focus = document.block("focus").expect("focus block");
+        assert_eq!(focus.scalar("id").as_deref(), Some("a"));
     }
 
     #[test]
