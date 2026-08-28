@@ -98,11 +98,6 @@ pub struct MapData {
 }
 
 impl MapData {
-    /// Mod folder this map was built from, so a cache can tell it is stale.
-    pub fn folder(&self) -> &str {
-        &self.folder
-    }
-
     pub fn summary(&self) -> MapSummary {
         let unassigned_land = self
             .provinces

@@ -315,6 +315,32 @@ pub fn normalise_path(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
 }
 
+/// Whether a `replace_path` entry covers `relative`.
+///
+/// The game drops the whole vanilla subtree, so `replace_path = "history"`
+/// takes `history/states` with it. Comparing the two as strings would keep
+/// loading base game states a mod had declared it replaces.
+fn covers(replacement: &str, relative: &str) -> bool {
+    let parts = |value: &str| {
+        value
+            .replace('\\', "/")
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .map(|part| part.trim().to_lowercase())
+            .collect::<Vec<String>>()
+    };
+
+    let replacement = parts(replacement);
+    let relative = parts(relative);
+
+    !replacement.is_empty()
+        && replacement.len() <= relative.len()
+        && replacement
+            .iter()
+            .zip(relative.iter())
+            .all(|(left, right)| left == right)
+}
+
 /// Every `.txt` under `relative`, taking the base game's copy of the directory
 /// and letting the mod's own files replace those of the same name.
 ///
@@ -329,11 +355,7 @@ pub fn overlay_files(
     replace_paths: &[String],
     relative: &str,
 ) -> Vec<PathBuf> {
-    let replaced = replace_paths.iter().any(|path| {
-        path.trim()
-            .trim_matches('/')
-            .eq_ignore_ascii_case(relative.trim_matches('/'))
-    });
+    let replaced = replace_paths.iter().any(|path| covers(path, relative));
 
     let mut roots: Vec<&str> = Vec::new();
     if !replaced && !game_root.trim().is_empty() {
@@ -376,6 +398,39 @@ pub fn overlay_files(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_replaced_parent_directory_covers_the_one_below_it() {
+        // The game drops the whole vanilla subtree for an ancestor entry.
+        assert!(covers("history", "history/states"));
+        assert!(covers("history/states", "history/states"));
+        assert!(covers("History/States", "history/states"));
+        assert!(covers("history\\states", "history/states"));
+        assert!(covers("/history/", "history/states"));
+    }
+
+    #[test]
+    fn an_unrelated_replacement_leaves_the_directory_alone() {
+        assert!(!covers("history/countries", "history/states"));
+        assert!(!covers("common", "history/states"));
+        assert!(!covers("", "history/states"));
+        // A deeper entry does not replace the directory above it.
+        assert!(!covers("history/states/asia", "history/states"));
+    }
+
+    #[test]
+    fn a_replaced_parent_drops_the_base_game_states() {
+        let (folder, game) = overlay_fixture("parent");
+
+        let replace = vec!["history".to_string()];
+        let files = overlay_files(&folder, &game, &replace, "history/states");
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(&files[0]).expect("read"),
+            "modded".to_string()
+        );
+    }
 
     /// Lays out a game folder and a mod folder under one temporary root.
     fn overlay_fixture(name: &str) -> (String, String) {

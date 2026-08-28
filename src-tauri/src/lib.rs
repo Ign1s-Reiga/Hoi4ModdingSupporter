@@ -94,12 +94,28 @@ fn read_text_file(path: String) -> AppResult<text_file::TextFile> {
 
 #[tauri::command]
 fn write_text_file(
+    cache: State<'_, MapCache>,
     path: String,
     content: String,
     encoding: text_file::Encoding,
     with_bom: bool,
 ) -> AppResult<text_file::Encoding> {
-    text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)
+    let written = text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)?;
+
+    // The scripts page writes any file through here, state definitions and the
+    // map's own csv included. Which of them the map is built from is not worth
+    // guessing: dropping the cache costs one reload, and only if a map page is
+    // opened afterwards.
+    drop_map_cache(&cache);
+
+    Ok(written)
+}
+
+/// Forgets the decoded map, so the next map call rebuilds it from disk.
+fn drop_map_cache(cache: &MapCache) {
+    if let Ok(mut slot) = cache.0.lock() {
+        *slot = None;
+    }
 }
 
 #[tauri::command]
@@ -168,9 +184,7 @@ fn update_state(
     // Owners, ids and province lists all feed the map. Keeping the cache
     // because the folder has not changed would leave the old colours up and,
     // worse, resolve a click to the owner the state used to have.
-    if let Ok(mut slot) = cache.0.lock() {
-        *slot = None;
-    }
+    drop_map_cache(&cache);
 
     Ok(saved)
 }
@@ -198,7 +212,22 @@ fn update_country_history(
 /// The decoded province map, kept between calls because rebuilding it means
 /// reading a forty megabyte bitmap and thirteen million pixels.
 #[derive(Default)]
-struct MapCache(Mutex<Option<map::MapData>>);
+struct MapCache(Mutex<Option<CachedMap>>);
+
+struct CachedMap {
+    key: MapKey,
+    data: map::MapData,
+}
+
+/// Everything a load reads from, so the cache cannot answer with a map built
+/// from different inputs: the game folder can be repointed in Settings, and
+/// two descriptors for the same mod folder can declare different replacements.
+#[derive(PartialEq, Eq)]
+struct MapKey {
+    folder: String,
+    game_root: String,
+    replace_paths: Vec<String>,
+}
 
 /// Runs `action` against the map of `folder`, loading it if needed.
 fn with_map<T>(
@@ -213,19 +242,21 @@ fn with_map<T>(
         .lock()
         .map_err(|_| AppError::message("the map cache was left in a broken state"))?;
 
-    let needs_load = slot
-        .as_ref()
-        .map(|data| data.folder() != folder)
-        .unwrap_or(true);
-    if needs_load {
-        let game_root = settings::load(app)?.game_root_path;
-        *slot = Some(map::load(folder, &game_root, replace_paths)?);
+    let key = MapKey {
+        folder: folder.to_string(),
+        game_root: settings::load(app)?.game_root_path,
+        replace_paths: replace_paths.to_vec(),
+    };
+
+    if slot.as_ref().map(|cached| &cached.key) != Some(&key) {
+        let data = map::load(folder, &key.game_root, replace_paths)?;
+        *slot = Some(CachedMap { key, data });
     }
 
-    let data = slot
+    let cached = slot
         .as_ref()
         .ok_or_else(|| AppError::message("the map failed to load"))?;
-    action(data)
+    action(&cached.data)
 }
 
 #[tauri::command]
