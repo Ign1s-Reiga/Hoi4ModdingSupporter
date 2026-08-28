@@ -7,7 +7,8 @@ import { useAppStore } from './store';
 import type { MapMode, MapSummary, ProvincePick } from './types';
 
 interface LoadedMap {
-  /** Folder and mode the render belongs to, so a stale one is never shown. */
+  /** Folder, mode and generation the render belongs to, so a stale one is
+   * never shown. */
   key: string;
   summary: MapSummary;
   source: string;
@@ -24,10 +25,18 @@ export function useProvinceMap(mode: MapMode) {
   const setError = useAppStore((state) => state.setError);
 
   const folder = project?.folderPath ?? '';
-  const key = folder ? `${folder}::${mode}` : '';
+  // A stable identity, so the effect does not re-run on every render of a
+  // parent that rebuilds the project object.
+  const replacePaths = React.useMemo(() => project?.replacePaths ?? [], [project?.replacePaths]);
+
+  // Bumped to force a reload after something that changes what the map shows,
+  // such as saving a state's owner.
+  const [generation, setGeneration] = React.useState(0);
 
   const [loaded, setLoaded] = React.useState<LoadedMap | null>(null);
   const [failed, setFailed] = React.useState<{ key: string; message: string } | null>(null);
+
+  const key = folder ? `${folder}::${mode}::${generation}` : '';
 
   React.useEffect(() => {
     if (!key) return;
@@ -35,8 +44,8 @@ export function useProvinceMap(mode: MapMode) {
     let cancelled = false;
     void (async () => {
       try {
-        const summary = await api.loadMap(folder);
-        const source = await api.renderMap(folder, mode);
+        const summary = await api.loadMap(folder, replacePaths);
+        const source = await api.renderMap(folder, replacePaths, mode);
         if (!cancelled) setLoaded({ key, summary, source });
       } catch (error) {
         if (cancelled) return;
@@ -49,15 +58,17 @@ export function useProvinceMap(mode: MapMode) {
     return () => {
       cancelled = true;
     };
-  }, [folder, key, mode, setError]);
+  }, [folder, key, mode, replacePaths, setError]);
 
   const current = loaded?.key === key ? loaded : null;
   const error = failed?.key === key ? failed.message : null;
 
   const pick = React.useCallback(
-    (x: number, y: number): Promise<ProvincePick | null> => api.pickProvince(folder, x, y),
-    [folder],
+    (x: number, y: number): Promise<ProvincePick | null> => api.pickProvince(folder, replacePaths, x, y),
+    [folder, replacePaths],
   );
+
+  const reload = React.useCallback(() => setGeneration((value) => value + 1), []);
 
   return {
     summary: current?.summary ?? null,
@@ -65,5 +76,6 @@ export function useProvinceMap(mode: MapMode) {
     isLoading: Boolean(key) && !current && !error,
     error,
     pick,
+    reload,
   };
 }

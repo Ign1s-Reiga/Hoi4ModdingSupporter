@@ -34,6 +34,9 @@ export default function StatesPage() {
 
   const states = stateFile?.states ?? [];
   const selected = states.find((state) => state.id === selectedId) ?? null;
+  // A mod need not override every state; the rest come from the game install,
+  // which this tool has no business writing to.
+  const isEditable = picked?.editable ?? true;
 
   async function onPick(point: MapPickPoint) {
     if (isDirty && !(await confirmDiscard('Discard unsaved state changes?'))) return;
@@ -78,12 +81,15 @@ export default function StatesPage() {
   }
 
   async function save() {
-    if (!stateFile || !draft || !selectedId) return;
+    if (!stateFile || !draft || !selectedId || !isEditable) return;
 
     setIsSaving(true);
     try {
       const updated = await api.updateState(stateFile.path, selectedId, draft);
       applyFile(updated, draft.id || selectedId);
+      // Owner, id and provinces all change what the map draws and what a click
+      // resolves to, so the render has to be thrown away with the cache.
+      map.reload();
       toast.success(`Saved state ${draft.id || selectedId}`);
     } catch (error) {
       const message = describeError(error);
@@ -138,8 +144,20 @@ export default function StatesPage() {
                     Unclosed
                   </Badge>
                 ) : null}
+                {!isEditable ? (
+                  <Badge tone='danger' title='This state is defined in the game folder, not in the mod'>
+                    <TriangleAlert className='size-3' />
+                    Base game
+                  </Badge>
+                ) : null}
                 {isDirty ? <Badge tone='accent'>Unsaved</Badge> : null}
-                <Button variant='primary' size='sm' onClick={() => void save()} disabled={!isDirty || isSaving}>
+                <Button
+                  variant='primary'
+                  size='sm'
+                  onClick={() => void save()}
+                  disabled={!isDirty || isSaving || !isEditable}
+                  title={isEditable ? undefined : 'The mod does not override this state'}
+                >
                   {isSaving ? <Loader2 className='animate-spin' /> : <Save />}
                   Save
                 </Button>
@@ -164,7 +182,15 @@ export default function StatesPage() {
               }
             />
           ) : (
-            <StateForm draft={draft} onChange={patch} />
+            <div className='grid gap-3'>
+              {!isEditable ? (
+                <p className='rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-muted'>
+                  This state comes from the game folder, so it cannot be saved here. Copy the file into the mod under{' '}
+                  <code>history/states</code> to override it.
+                </p>
+              ) : null}
+              <StateForm draft={draft} onChange={patch} />
+            </div>
           )}
         </PanelBody>
       </Panel>

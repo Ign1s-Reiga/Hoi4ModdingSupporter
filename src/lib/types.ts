@@ -294,4 +294,9 @@ export interface ProvincePick {
   owner: string;
   /** File the state is defined in. */
   statePath: string;
+  /**
+   * Whether that file is the mod's own. A state loaded from the base game is
+   * shown on the map but must not be written — the file is in the game install.
+   */
+  editable: boolean;
 }

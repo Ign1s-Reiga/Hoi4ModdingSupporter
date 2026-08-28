@@ -158,11 +158,21 @@ fn read_state_file(path: String) -> AppResult<state::StateFile> {
 
 #[tauri::command]
 fn update_state(
+    cache: State<'_, MapCache>,
     path: String,
     state_id: String,
     update: state::StateUpdate,
 ) -> AppResult<state::StateFile> {
-    state::update(&path, &state_id, &update)
+    let saved = state::update(&path, &state_id, &update)?;
+
+    // Owners, ids and province lists all feed the map. Keeping the cache
+    // because the folder has not changed would leave the old colours up and,
+    // worse, resolve a click to the owner the state used to have.
+    if let Ok(mut slot) = cache.0.lock() {
+        *slot = None;
+    }
+
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -195,6 +205,7 @@ fn with_map<T>(
     app: &AppHandle,
     cache: &MapCache,
     folder: &str,
+    replace_paths: &[String],
     action: impl FnOnce(&map::MapData) -> AppResult<T>,
 ) -> AppResult<T> {
     let mut slot = cache
@@ -208,7 +219,7 @@ fn with_map<T>(
         .unwrap_or(true);
     if needs_load {
         let game_root = settings::load(app)?.game_root_path;
-        *slot = Some(map::load(folder, &game_root)?);
+        *slot = Some(map::load(folder, &game_root, replace_paths)?);
     }
 
     let data = slot
@@ -222,8 +233,11 @@ fn load_map(
     app: AppHandle,
     cache: State<'_, MapCache>,
     folder_path: String,
+    replace_paths: Vec<String>,
 ) -> AppResult<map::MapSummary> {
-    with_map(&app, &cache, &folder_path, |data| Ok(data.summary()))
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        Ok(data.summary())
+    })
 }
 
 #[tauri::command]
@@ -231,9 +245,12 @@ fn render_map(
     app: AppHandle,
     cache: State<'_, MapCache>,
     folder_path: String,
+    replace_paths: Vec<String>,
     mode: map::MapMode,
 ) -> AppResult<String> {
-    with_map(&app, &cache, &folder_path, |data| data.render(mode))
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        data.render(mode)
+    })
 }
 
 #[tauri::command]
@@ -241,10 +258,13 @@ fn pick_province(
     app: AppHandle,
     cache: State<'_, MapCache>,
     folder_path: String,
+    replace_paths: Vec<String>,
     x: u32,
     y: u32,
 ) -> AppResult<Option<map::ProvincePick>> {
-    with_map(&app, &cache, &folder_path, |data| Ok(data.pick(x, y)))
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        Ok(data.pick(x, y))
+    })
 }
 
 #[tauri::command]

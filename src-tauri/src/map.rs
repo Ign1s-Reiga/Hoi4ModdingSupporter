@@ -54,6 +54,9 @@ pub struct ProvincePick {
     pub owner: String,
     /// File the state is defined in, so the editor can open it.
     pub state_path: String,
+    /// Whether that file is the mod's own. States loaded from the base game
+    /// are shown but must not be written: the file lives in the game install.
+    pub editable: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -143,7 +146,19 @@ impl MapData {
             state_name: state.map(|state| state.name.clone()).unwrap_or_default(),
             owner: state.map(|state| state.owner.clone()).unwrap_or_default(),
             state_path: state.map(|state| state.path.clone()).unwrap_or_default(),
+            editable: state.is_some_and(|state| self.is_in_mod(&state.path)),
         })
+    }
+
+    /// Whether a loaded file belongs to the mod rather than the base game.
+    fn is_in_mod(&self, path: &str) -> bool {
+        let folder = self.folder.replace('\\', "/");
+        let path = path.replace('\\', "/");
+
+        !folder.is_empty()
+            && path
+                .to_lowercase()
+                .starts_with(&format!("{}/", folder.trim_end_matches('/').to_lowercase()))
     }
 
     /// Paints the map and encodes it as a PNG data URL.
@@ -309,7 +324,7 @@ fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> [u8; 3] {
 
 /// Reads the map of a mod, falling back to the game folder for anything the
 /// mod does not override.
-pub fn load(folder: &str, game_root: &str) -> AppResult<MapData> {
+pub fn load(folder: &str, game_root: &str, replace_paths: &[String]) -> AppResult<MapData> {
     let definitions_path = resolve(folder, game_root, "map/definition.csv")?;
     let provinces_path = resolve(folder, game_root, "map/provinces.bmp")?;
 
@@ -330,7 +345,7 @@ pub fn load(folder: &str, game_root: &str) -> AppResult<MapData> {
         province_at[at] = by_colour[key];
     }
 
-    let (states, state_of_province) = read_states(folder);
+    let (states, state_of_province) = read_states(folder, game_root, replace_paths);
     let country_colors = read_country_colors(folder, game_root);
 
     // Flatten province -> state once so rendering is pure array indexing. The
@@ -423,22 +438,19 @@ fn read_definitions(path: &Path) -> AppResult<(Vec<ProvinceInfo>, Vec<u16>)> {
     Ok((provinces, by_colour))
 }
 
-/// Every state in the mod, and which state each province belongs to.
-fn read_states(folder: &str) -> (Vec<StateInfo>, HashMap<u32, usize>) {
-    let root = Path::new(folder).join("history").join("states");
+/// Every state the mod loads, and which state each province belongs to.
+///
+/// A mod that overrides only some of `history/states` still plays with the
+/// rest of vanilla, so the base game's states are read underneath the mod's.
+fn read_states(
+    folder: &str,
+    game_root: &str,
+    replace_paths: &[String],
+) -> (Vec<StateInfo>, HashMap<u32, usize>) {
     let mut states = Vec::new();
     let mut state_of_province = HashMap::new();
 
-    let Ok(entries) = std::fs::read_dir(&root) else {
-        return (states, state_of_province);
-    };
-
-    let mut paths: Vec<PathBuf> = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("txt"))
-        .collect();
-    paths.sort();
+    let paths = crate::project::overlay_files(folder, game_root, replace_paths, "history/states");
 
     for path in paths {
         let Ok(file) = crate::state::read(&path.display().to_string()) else {

@@ -1,5 +1,6 @@
 //! Mod descriptor (`.mod`) reading and project file discovery.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -314,9 +315,125 @@ pub fn normalise_path(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
 }
 
+/// Every `.txt` under `relative`, taking the base game's copy of the directory
+/// and letting the mod's own files replace those of the same name.
+///
+/// This is how the game itself loads a directory: a mod that ships
+/// `history/states/1-Corsica.txt` replaces only that file, and the rest of
+/// vanilla still loads. A `replace_path` in the descriptor drops the base game
+/// directory altogether. Reading only the mod folder leaves every province a
+/// conventional mod did not touch looking unowned.
+pub fn overlay_files(
+    folder: &str,
+    game_root: &str,
+    replace_paths: &[String],
+    relative: &str,
+) -> Vec<PathBuf> {
+    let replaced = replace_paths.iter().any(|path| {
+        path.trim()
+            .trim_matches('/')
+            .eq_ignore_ascii_case(relative.trim_matches('/'))
+    });
+
+    let mut roots: Vec<&str> = Vec::new();
+    if !replaced && !game_root.trim().is_empty() {
+        roots.push(game_root);
+    }
+    roots.push(folder);
+
+    // Keyed by the path below `relative`, so the mod's file of a given name
+    // lands on top of the game's. Sorted, so a load is reproducible.
+    let mut by_name: BTreeMap<String, PathBuf> = BTreeMap::new();
+
+    for root in roots {
+        let base = Path::new(root).join(relative);
+        for entry in WalkDir::new(&base)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            let path = entry.path();
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            if path.extension().and_then(|value| value.to_str()) != Some("txt") {
+                continue;
+            }
+
+            let key = path
+                .strip_prefix(&base)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/")
+                .to_lowercase();
+            by_name.insert(key, path.to_path_buf());
+        }
+    }
+
+    by_name.into_values().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lays out a game folder and a mod folder under one temporary root.
+    fn overlay_fixture(name: &str) -> (String, String) {
+        let root = std::env::temp_dir().join("hoi4ms-overlay").join(name);
+        let _ = std::fs::remove_dir_all(&root);
+
+        let game = root.join("game").join("history").join("states");
+        let modded = root.join("mod").join("history").join("states");
+        std::fs::create_dir_all(&game).expect("game dir");
+        std::fs::create_dir_all(&modded).expect("mod dir");
+
+        std::fs::write(game.join("1-Corsica.txt"), "vanilla").expect("write");
+        std::fs::write(game.join("2-Sardinia.txt"), "vanilla").expect("write");
+        std::fs::write(modded.join("1-Corsica.txt"), "modded").expect("write");
+
+        (
+            normalise_path(&root.join("mod")),
+            normalise_path(&root.join("game")),
+        )
+    }
+
+    #[test]
+    fn a_mod_file_replaces_the_base_game_file_of_the_same_name() {
+        let (folder, game) = overlay_fixture("overlay");
+
+        let files = overlay_files(&folder, &game, &[], "history/states");
+        let bodies: Vec<String> = files
+            .iter()
+            .map(|path| std::fs::read_to_string(path).expect("read"))
+            .collect();
+
+        // Corsica comes from the mod, Sardinia still from the game.
+        assert_eq!(files.len(), 2);
+        assert_eq!(bodies, vec!["modded".to_string(), "vanilla".to_string()]);
+    }
+
+    #[test]
+    fn replace_path_drops_the_base_game_directory() {
+        let (folder, game) = overlay_fixture("replaced");
+
+        let replace = vec!["history/states".to_string()];
+        let files = overlay_files(&folder, &game, &replace, "history/states");
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(&files[0]).expect("read"),
+            "modded".to_string()
+        );
+    }
+
+    #[test]
+    fn a_missing_game_folder_leaves_the_mod_files() {
+        let (folder, _) = overlay_fixture("nogame");
+
+        let files = overlay_files(&folder, "", &[], "history/states");
+
+        assert_eq!(files.len(), 1);
+    }
 
     #[test]
     fn resolves_a_descriptor_path_relative_to_the_user_directory() {

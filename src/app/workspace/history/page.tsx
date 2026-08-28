@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Landmark, Loader2, Save, TriangleAlert, X } from 'lucide-react';
+import { Landmark, Loader2, Save, Search, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MapCanvas, type MapPickPoint } from '@/components/map-canvas';
@@ -80,18 +80,43 @@ export default function CountryHistoryPage() {
         return;
       }
 
-      const loaded = await api.readCountryHistory(file.path);
-      if (openRequest.current !== request) return;
-
-      setCountry(loaded);
-      setDraft(toCountryHistoryUpdate(loaded));
-      setIsDirty(false);
+      await openCountry(file, request);
     } catch (error) {
       if (openRequest.current !== request) return;
       setError(describeError(error));
     } finally {
       if (openRequest.current === request) setIsLoading(false);
     }
+  }
+
+  /**
+   * Opens a country file directly, for the ones the map cannot reach: a
+   * releasable or exiled country owns no province to click.
+   */
+  async function openFromList(file: CountryHistoryInfo) {
+    if (isDirty && !(await confirmDiscard('Discard unsaved country changes?'))) return;
+
+    const request = ++openRequest.current;
+    setIsLoading(true);
+    try {
+      setPicked(null);
+      setMarker(null);
+      await openCountry(file, request);
+    } catch (error) {
+      if (openRequest.current !== request) return;
+      setError(describeError(error));
+    } finally {
+      if (openRequest.current === request) setIsLoading(false);
+    }
+  }
+
+  async function openCountry(file: CountryHistoryInfo, request: number) {
+    const loaded = await api.readCountryHistory(file.path);
+    if (openRequest.current !== request) return;
+
+    setCountry(loaded);
+    setDraft(toCountryHistoryUpdate(loaded));
+    setIsDirty(false);
   }
 
   function patch(changes: Partial<CountryHistoryUpdate>) {
@@ -169,7 +194,9 @@ export default function CountryHistoryPage() {
             ) : null
           }
         />
-        <PanelBody className='p-3'>
+        <PanelBody className='grid content-start gap-3 p-3'>
+          <CountryPicker files={files} onOpen={(file) => void openFromList(file)} />
+
           {isLoading ? (
             <div className='flex h-full items-center justify-center gap-2 text-sm text-muted'>
               <Loader2 className='size-4 animate-spin' />
@@ -192,6 +219,66 @@ export default function CountryHistoryPage() {
           )}
         </PanelBody>
       </Panel>
+    </div>
+  );
+}
+
+/**
+ * Finds a country file by tag or name.
+ *
+ * The map cannot reach every country: releasable, exiled and formable ones own
+ * no province at the start, so clicking will never open them.
+ */
+function CountryPicker({ files, onOpen }: { files: CountryHistoryInfo[]; onOpen: (file: CountryHistoryInfo) => void }) {
+  const [query, setQuery] = React.useState('');
+
+  const matches = React.useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+
+    return files
+      .filter((file) => file.tag.toLowerCase().includes(needle) || file.fileName.toLowerCase().includes(needle))
+      .slice(0, 8);
+  }, [files, query]);
+
+  return (
+    <div className='grid gap-1.5'>
+      <div className='relative'>
+        <Search className='pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted' />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={`Find one of ${files.length} country files`}
+          className='h-8 w-full rounded-md border border-border bg-surface pl-7 pr-7 text-xs outline-none focus:border-accent'
+        />
+        {query ? (
+          <button
+            type='button'
+            onClick={() => setQuery('')}
+            title='Clear'
+            className='absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:text-fg'
+          >
+            <X className='size-3.5' />
+          </button>
+        ) : null}
+      </div>
+
+      {query.trim() && matches.length === 0 ? <p className='text-xs text-muted'>No country file matches.</p> : null}
+
+      {matches.map((file) => (
+        <button
+          key={file.path}
+          type='button'
+          onClick={() => {
+            setQuery('');
+            onOpen(file);
+          }}
+          className='flex items-center gap-2 rounded-md border border-border px-2 py-1 text-left text-xs hover:border-accent'
+        >
+          <span className='font-mono text-accent'>{file.tag || '???'}</span>
+          <span className='truncate text-muted'>{file.fileName}</span>
+        </button>
+      ))}
     </div>
   );
 }

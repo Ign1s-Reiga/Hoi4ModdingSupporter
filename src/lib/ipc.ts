@@ -77,13 +77,20 @@ export const api = {
 
   deleteFocus: (path: string, focusId: string) => call<FocusFile>('delete_focus', { path, focusId }),
 
-  /** Decodes provinces.bmp and joins it to the state files. Cached backend side. */
-  loadMap: (folderPath: string) => call<MapSummary>('load_map', { folderPath }),
+  /**
+   * Decodes provinces.bmp and joins it to the state files. Cached backend side.
+   *
+   * `replacePaths` comes from the descriptor: without it the base game's states
+   * are loaded underneath the mod's, which is what the game does for any
+   * directory the mod has not replaced.
+   */
+  loadMap: (folderPath: string, replacePaths: string[]) => call<MapSummary>('load_map', { folderPath, replacePaths }),
 
-  renderMap: (folderPath: string, mode: MapMode) => call<string>('render_map', { folderPath, mode }),
+  renderMap: (folderPath: string, replacePaths: string[], mode: MapMode) =>
+    call<string>('render_map', { folderPath, replacePaths, mode }),
 
-  pickProvince: (folderPath: string, x: number, y: number) =>
-    call<ProvincePick | null>('pick_province', { folderPath, x, y }),
+  pickProvince: (folderPath: string, replacePaths: string[], x: number, y: number) =>
+    call<ProvincePick | null>('pick_province', { folderPath, replacePaths, x, y }),
 
   readStateFile: (path: string) => call<StateFile>('read_state_file', { path }),
 
