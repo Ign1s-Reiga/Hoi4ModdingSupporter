@@ -25,6 +25,12 @@ use crate::text_file;
 /// any colour the definitions do not mention.
 const NO_PROVINCE: u16 = u16::MAX;
 
+/// How much of a pixel's colour survives, as a percentage, inside a province
+/// and at each kind of edge.
+const INSIDE: u16 = 100;
+const PROVINCE_EDGE: u16 = 78;
+const STATE_EDGE: u16 = 45;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapSummary {
@@ -141,41 +147,8 @@ impl MapData {
     }
 
     /// Paints the map and encodes it as a PNG data URL.
-    ///
-    /// Borders are drawn where neighbouring pixels belong to different states,
-    /// which is what makes the result readable rather than a wash of colour.
     pub fn render(&self, mode: MapMode) -> AppResult<String> {
-        let palette = self.palette(mode);
-        let width = self.width as usize;
-        let height = self.height as usize;
-
-        let mut pixels = vec![0u8; width * height * 3];
-
-        for y in 0..height {
-            for x in 0..width {
-                let at = y * width + x;
-                let colour = palette[self.province_at[at] as usize % palette.len()];
-
-                // Darken the pixel when the one to its right or below sits in a
-                // different state, which draws the outline in one pass.
-                let mine = self.state_index(at);
-                let right = (x + 1 < width).then(|| self.state_index(at + 1));
-                let below = (y + 1 < height).then(|| self.state_index(at + width));
-                let is_border = right.is_some_and(|other| other != mine)
-                    || below.is_some_and(|other| other != mine);
-
-                let out = at * 3;
-                for channel in 0..3 {
-                    pixels[out + channel] = if is_border {
-                        (colour[channel] as u16 * 45 / 100) as u8
-                    } else {
-                        colour[channel]
-                    };
-                }
-            }
-        }
-
-        let buffer = image::RgbImage::from_raw(self.width, self.height, pixels)
+        let buffer = image::RgbImage::from_raw(self.width, self.height, self.paint(mode))
             .ok_or_else(|| AppError::message("the rendered map did not fit its buffer"))?;
 
         let mut encoded = Vec::new();
@@ -192,13 +165,67 @@ impl MapData {
         ))
     }
 
-    /// State a pixel belongs to, or `usize::MAX` for none.
-    fn state_index(&self, at: usize) -> usize {
-        let index = self.province_at[at] as usize;
+    /// Paints every pixel of the map as raw RGB.
+    ///
+    /// Both outlines are drawn in the one pass: an edge between two provinces
+    /// is darkened a little, an edge between two states a lot. Without the
+    /// province lines a state is a flat wash of colour with no way to see the
+    /// provinces it is made of; without the state lines being stronger, the
+    /// two are indistinguishable.
+    fn paint(&self, mode: MapMode) -> Vec<u8> {
+        let palette = self.palette(mode);
+        let width = self.width as usize;
+        let height = self.height as usize;
+
+        let mut pixels = vec![0u8; width * height * 3];
+
+        for y in 0..height {
+            for x in 0..width {
+                let at = y * width + x;
+                let mine = self.province_at[at];
+                let colour = palette[self.palette_index(mine)];
+
+                // Only the right and lower neighbours are compared: the pixel
+                // on the other side of an edge darkens itself when its turn
+                // comes, so every border still ends up one pixel wide.
+                let right = (x + 1 < width).then(|| self.province_at[at + 1]);
+                let below = (y + 1 < height).then(|| self.province_at[at + width]);
+
+                let mut shade = INSIDE;
+                for other in [right, below].into_iter().flatten() {
+                    if other == mine {
+                        continue;
+                    }
+                    shade = shade.min(if self.state_of(other) == self.state_of(mine) {
+                        PROVINCE_EDGE
+                    } else {
+                        STATE_EDGE
+                    });
+                }
+
+                let out = at * 3;
+                for channel in 0..3 {
+                    pixels[out + channel] = (colour[channel] as u16 * shade / 100) as u8;
+                }
+            }
+        }
+
+        pixels
+    }
+
+    /// State a province belongs to, or `usize::MAX` for none.
+    fn state_of(&self, province: u16) -> usize {
         self.state_of_index
-            .get(index)
+            .get(province as usize)
             .copied()
             .unwrap_or(usize::MAX)
+    }
+
+    /// Palette slot for a province index. Everything the definitions do not
+    /// name falls to the last entry rather than borrowing another province's
+    /// colour, which is what plain wrapping would do.
+    fn palette_index(&self, province: u16) -> usize {
+        (province as usize).min(self.provinces.len())
     }
 
     /// One colour per province index, plus a trailing entry for no province.
@@ -518,6 +545,76 @@ fn channels(block: &paradox::Block) -> Option<[u8; 3]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A one row map of four pixels: two of province 1, then province 2, then
+    /// province 3. Provinces 1 and 2 share a state, province 3 has its own.
+    fn strip() -> MapData {
+        let provinces = (1..=3)
+            .map(|id| ProvinceInfo {
+                id,
+                kind: "land".to_string(),
+                terrain: "plains".to_string(),
+            })
+            .collect();
+
+        let states = ["10", "20"]
+            .iter()
+            .map(|id| StateInfo {
+                id: id.to_string(),
+                name: format!("STATE_{id}"),
+                owner: "ENG".to_string(),
+                path: String::new(),
+            })
+            .collect();
+
+        MapData {
+            folder: String::new(),
+            width: 4,
+            height: 1,
+            province_at: vec![0, 0, 1, 2],
+            provinces,
+            state_of_province: HashMap::from([(1, 0), (2, 0), (3, 1)]),
+            states,
+            state_of_index: vec![0, 0, 1, usize::MAX],
+            country_colors: HashMap::new(),
+        }
+    }
+
+    fn pixel(pixels: &[u8], at: usize) -> [u8; 3] {
+        [pixels[at * 3], pixels[at * 3 + 1], pixels[at * 3 + 2]]
+    }
+
+    fn shaded(colour: [u8; 3], shade: u16) -> [u8; 3] {
+        colour.map(|channel| (channel as u16 * shade / 100) as u8)
+    }
+
+    #[test]
+    fn draws_province_edges_under_state_edges() {
+        let pixels = strip().paint(MapMode::States);
+
+        let first = distinct_colour("10");
+        let second = distinct_colour("20");
+
+        // Inside province 1, with province 1 to the right.
+        assert_eq!(pixel(&pixels, 0), shaded(first, INSIDE));
+        // Province 1 meeting province 2, both in state 10.
+        assert_eq!(pixel(&pixels, 1), shaded(first, PROVINCE_EDGE));
+        // Province 2 meeting province 3, which is a different state.
+        assert_eq!(pixel(&pixels, 2), shaded(first, STATE_EDGE));
+        // The last pixel has no neighbour to compare against.
+        assert_eq!(pixel(&pixels, 3), shaded(second, INSIDE));
+    }
+
+    #[test]
+    fn an_undefined_colour_does_not_borrow_a_province_colour() {
+        let mut map = strip();
+        map.province_at = vec![NO_PROVINCE; 4];
+
+        let pixels = map.paint(MapMode::States);
+
+        // The palette's last entry, not whatever province the index wraps to.
+        assert_eq!(pixel(&pixels, 0), [20, 20, 22]);
+    }
 
     #[test]
     fn a_colour_is_stable_for_a_key() {
