@@ -271,3 +271,32 @@ export function toCountryHistoryUpdate(country: CountryHistory): CountryHistoryU
     popularities: country.popularities,
   };
 }
+
+/** How the province map is coloured. */
+export type MapMode = 'states' | 'owners';
+
+export interface MapSummary {
+  width: number;
+  height: number;
+  provinceCount: number;
+  stateCount: number;
+  /** Land provinces no state claims. */
+  unassignedLand: number;
+}
+
+export interface ProvincePick {
+  provinceId: number;
+  kind: string;
+  terrain: string;
+  /** Empty when no state lists this province. */
+  stateId: string;
+  stateName: string;
+  owner: string;
+  /** File the state is defined in. */
+  statePath: string;
+  /**
+   * Whether that file is the mod's own. A state loaded from the base game is
+   * shown on the map but must not be written — the file is in the game install.
+   */
+  editable: boolean;
+}

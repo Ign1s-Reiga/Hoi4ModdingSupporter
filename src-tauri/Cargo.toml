@@ -32,6 +32,15 @@ image = { version = "0.25", default-features = false, features = [
   "dds",
 ] }
 
+# Decoding a forty megabyte bitmap and painting thirteen million pixels is
+# unusable in an unoptimised build, so development optimises the dependencies
+# doing that work and lightly optimises this crate.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [profile.release]
 codegen-units = 1
 lto = true

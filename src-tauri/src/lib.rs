@@ -3,13 +3,16 @@ mod country_history;
 mod error;
 mod focus;
 mod localisation;
+mod map;
 mod paradox;
 mod project;
 mod settings;
 mod state;
 mod text_file;
 
-use tauri::AppHandle;
+use std::sync::Mutex;
+
+use tauri::{AppHandle, State};
 
 use error::{AppError, AppResult};
 
@@ -91,12 +94,28 @@ fn read_text_file(path: String) -> AppResult<text_file::TextFile> {
 
 #[tauri::command]
 fn write_text_file(
+    cache: State<'_, MapCache>,
     path: String,
     content: String,
     encoding: text_file::Encoding,
     with_bom: bool,
 ) -> AppResult<text_file::Encoding> {
-    text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)
+    let written = text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)?;
+
+    // The scripts page writes any file through here, state definitions and the
+    // map's own csv included. Which of them the map is built from is not worth
+    // guessing: dropping the cache costs one reload, and only if a map page is
+    // opened afterwards.
+    drop_map_cache(&cache);
+
+    Ok(written)
+}
+
+/// Forgets the decoded map, so the next map call rebuilds it from disk.
+fn drop_map_cache(cache: &MapCache) {
+    if let Ok(mut slot) = cache.0.lock() {
+        *slot = None;
+    }
 }
 
 #[tauri::command]
@@ -155,11 +174,19 @@ fn read_state_file(path: String) -> AppResult<state::StateFile> {
 
 #[tauri::command]
 fn update_state(
+    cache: State<'_, MapCache>,
     path: String,
     state_id: String,
     update: state::StateUpdate,
 ) -> AppResult<state::StateFile> {
-    state::update(&path, &state_id, &update)
+    let saved = state::update(&path, &state_id, &update)?;
+
+    // Owners, ids and province lists all feed the map. Keeping the cache
+    // because the folder has not changed would leave the old colours up and,
+    // worse, resolve a click to the owner the state used to have.
+    drop_map_cache(&cache);
+
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -180,6 +207,95 @@ fn update_country_history(
     update: country_history::CountryHistoryUpdate,
 ) -> AppResult<country_history::CountryHistory> {
     country_history::update(&path, &update)
+}
+
+/// The decoded province map, kept between calls because rebuilding it means
+/// reading a forty megabyte bitmap and thirteen million pixels.
+#[derive(Default)]
+struct MapCache(Mutex<Option<CachedMap>>);
+
+struct CachedMap {
+    key: MapKey,
+    data: map::MapData,
+}
+
+/// Everything a load reads from, so the cache cannot answer with a map built
+/// from different inputs: the game folder can be repointed in Settings, and
+/// two descriptors for the same mod folder can declare different replacements.
+#[derive(PartialEq, Eq)]
+struct MapKey {
+    folder: String,
+    game_root: String,
+    replace_paths: Vec<String>,
+}
+
+/// Runs `action` against the map of `folder`, loading it if needed.
+fn with_map<T>(
+    app: &AppHandle,
+    cache: &MapCache,
+    folder: &str,
+    replace_paths: &[String],
+    action: impl FnOnce(&map::MapData) -> AppResult<T>,
+) -> AppResult<T> {
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the map cache was left in a broken state"))?;
+
+    let key = MapKey {
+        folder: folder.to_string(),
+        game_root: settings::load(app)?.game_root_path,
+        replace_paths: replace_paths.to_vec(),
+    };
+
+    if slot.as_ref().map(|cached| &cached.key) != Some(&key) {
+        let data = map::load(folder, &key.game_root, replace_paths)?;
+        *slot = Some(CachedMap { key, data });
+    }
+
+    let cached = slot
+        .as_ref()
+        .ok_or_else(|| AppError::message("the map failed to load"))?;
+    action(&cached.data)
+}
+
+#[tauri::command]
+fn load_map(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+    replace_paths: Vec<String>,
+) -> AppResult<map::MapSummary> {
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        Ok(data.summary())
+    })
+}
+
+#[tauri::command]
+fn render_map(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+    replace_paths: Vec<String>,
+    mode: map::MapMode,
+) -> AppResult<String> {
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        data.render(mode)
+    })
+}
+
+#[tauri::command]
+fn pick_province(
+    app: AppHandle,
+    cache: State<'_, MapCache>,
+    folder_path: String,
+    replace_paths: Vec<String>,
+    x: u32,
+    y: u32,
+) -> AppResult<Option<map::ProvincePick>> {
+    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
+        Ok(data.pick(x, y))
+    })
 }
 
 #[tauri::command]
@@ -206,6 +322,7 @@ fn validate_game_root(path: String) -> AppResult<bool> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(MapCache::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -228,6 +345,9 @@ pub fn run() {
             list_country_history,
             read_country_history,
             update_country_history,
+            load_map,
+            render_map,
+            pick_province,
             list_localisation_files,
             read_localisation_file,
             write_localisation_file,
