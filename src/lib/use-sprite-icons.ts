@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
-import { api, isDesktop } from './ipc';
-import type { SpriteIcon } from './types';
+import { api, isDesktop } from '@/lib/ipc';
+import type { SpriteIcon } from '@/lib/types';
 
 /** Sprite name to what it resolved to. A name absent from the map is one the
  * backend has not answered for yet. */
