@@ -307,7 +307,7 @@ pub fn add(path: &str, tree_id: &str, focus: &FocusUpdate) -> AppResult<FocusFil
     let body = render_focus_body(focus, &format!("{indent}\t"), newline);
     let line = format!("focus = {{{newline}{body}{newline}{indent}}}");
 
-    let updated = apply_edits(source, vec![insert_lines(source, tree_block, &[line])]);
+    let updated = apply_edits(source, vec![insert_lines(source, tree_block, &[line], &[])]);
     text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
 
     read(path)
