@@ -28,7 +28,7 @@ import type {
   StateFile,
   StateUpdate,
   TextFile,
-} from './types';
+} from '@/lib/types';
 
 export function isDesktop(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;

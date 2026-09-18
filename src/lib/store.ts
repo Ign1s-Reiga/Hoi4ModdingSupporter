@@ -2,8 +2,8 @@
 
 import { create } from 'zustand';
 
-import { api, describeError } from './ipc';
-import type { ModProject, ScanResult, Settings, ThemeMode } from './types';
+import { api, describeError } from '@/lib/ipc';
+import type { ModProject, ScanResult, Settings, ThemeMode } from '@/lib/types';
 
 /** Lets a reload land back in the workspace the user was in. */
 const LAST_PROJECT_KEY = 'hoi4ms.last-project';

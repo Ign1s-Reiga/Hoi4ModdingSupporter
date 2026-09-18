@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { useAppStore } from './store';
+import { useAppStore } from '@/lib/store';
 
 /**
  * Reports a workspace page's unsaved state to the shell.

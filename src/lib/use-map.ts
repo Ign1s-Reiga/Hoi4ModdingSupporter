@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 
-import { api, describeError } from './ipc';
-import { useAppStore } from './store';
-import type { MapMode, MapSummary, ProvincePick } from './types';
+import { api, describeError } from '@/lib/ipc';
+import { useAppStore } from '@/lib/store';
+import type { MapMode, MapSummary, ProvincePick } from '@/lib/types';
 
 interface LoadedMap {
   /** Folder, mode and generation the render belongs to, so a stale one is

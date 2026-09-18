@@ -1,5 +1,5 @@
-import type { ProjectFile } from './types';
-import { isInFolder } from './utils';
+import type { ProjectFile } from '@/lib/types';
+import { isInFolder } from '@/lib/utils';
 
 export interface FileGroup {
   id: string;
