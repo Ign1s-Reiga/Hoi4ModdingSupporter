@@ -456,7 +456,8 @@ struct UpdateFocusInput {
 struct AddFocusInput {
     /// The focus file, relative to the mod folder or absolute.
     path: String,
-    /// Id of the `focus_tree` to append to; empty adds a `shared_focus`.
+    /// Id of the `focus_tree` to append to. Empty means the file's first
+    /// tree; a file with no `focus_tree` block is refused.
     #[serde(default)]
     tree_id: String,
     /// The new focus. `id`, `icon`, `x`, `y` and `cost` are what the game needs.
@@ -733,7 +734,7 @@ impl Server {
     }
 
     #[tool(
-        description = "Appends a new focus to a focus tree in the file, or a shared focus when no tree id is given. Returns the file as re-read."
+        description = "Appends a new focus to a focus_tree in the file: the one named by treeId, or the file's first when treeId is empty. Files holding only shared_focus blocks are refused. Returns the file as re-read."
     )]
     async fn add_focus(
         &self,
