@@ -13,7 +13,7 @@ import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/com
 import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
-import { useSpriteIcons } from '@/lib/use-sprite-icons';
+import { isScriptedIcon, spriteName, useSpriteIcons } from '@/lib/use-sprite-icons';
 import { useUnsavedIn } from '@/lib/use-unsaved';
 import {
   emptyFocusUpdate,
@@ -62,7 +62,7 @@ export default function FocusPage() {
     () => focuses.map((focus) => (focus.id === selectedId && draft ? { ...focus, ...draft } : focus)),
     [draft, focuses, selectedId],
   );
-  const iconNames = React.useMemo(() => shown.map((focus) => focus.icon), [shown]);
+  const iconNames = React.useMemo(() => shown.map((focus) => spriteName(focus.icon)), [shown]);
   const icons = useSpriteIcons(project?.folderPath, iconNames);
 
   async function openFile(file: ProjectFile) {
@@ -322,7 +322,7 @@ export default function FocusPage() {
           ) : (
             <FocusForm
               draft={draft}
-              icon={icons.get(draft.icon.trim())}
+              icon={icons.get(spriteName(draft.icon))}
               focusIds={focuses.map((focus) => focus.id).filter(Boolean)}
               onChange={patch}
             />
@@ -377,8 +377,21 @@ function FocusForm({
         <CodeInput value={draft.id} onChange={(event) => onChange({ id: event.target.value })} />
       </Field>
 
-      <Field label='Icon' hint={draft.icon.trim() ? undefined : 'Sprite name, e.g. GFX_goal_generic_army_doctrines'}>
-        <CodeInput value={draft.icon} onChange={(event) => onChange({ icon: event.target.value })} />
+      <Field
+        label='Icon'
+        hint={
+          draft.icon.trim()
+            ? isScriptedIcon(draft.icon)
+              ? 'Picked by trigger; the first sprite is previewed. Replace the whole text with a name for a plain icon.'
+              : undefined
+            : 'Sprite name, e.g. GFX_goal_generic_army_doctrines'
+        }
+      >
+        {isScriptedIcon(draft.icon) ? (
+          <Textarea rows={5} value={draft.icon} onChange={(event) => onChange({ icon: event.target.value })} />
+        ) : (
+          <CodeInput value={draft.icon} onChange={(event) => onChange({ icon: event.target.value })} />
+        )}
       </Field>
       {draft.icon.trim() ? <IconPreview icon={icon} /> : null}
 

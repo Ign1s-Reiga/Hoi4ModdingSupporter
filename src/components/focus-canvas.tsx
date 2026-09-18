@@ -15,7 +15,7 @@ import {
   type Placement,
 } from '@/lib/focus-layout';
 import type { Focus } from '@/lib/types';
-import type { SpriteMap } from '@/lib/use-sprite-icons';
+import { spriteName, type SpriteMap } from '@/lib/use-sprite-icons';
 import { cn } from '@/lib/utils';
 
 /** Reset and first paint both use this. */
@@ -206,7 +206,7 @@ export function FocusCanvas({ focuses, icons, selectedId, onSelect, onMove }: Fo
           {focuses.map((focus) => {
             const origin = nodeOrigin(effective(focus), bounds);
             const isSelected = focus.id === selectedId;
-            const icon = icons.get(focus.icon.trim());
+            const icon = icons.get(spriteName(focus.icon));
 
             return (
               <button
