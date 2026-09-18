@@ -1,6 +1,6 @@
 [package]
 name = "hoi4-modding-supporter"
-version = "0.1.0"
+version = "0.2.0"
 description = "Support tool for Hearts of Iron IV modding"
 authors = ["Ign1s-Reiga"]
 license = "MIT"
