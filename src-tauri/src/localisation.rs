@@ -12,7 +12,7 @@ use crate::error::{AppError, AppResult};
 use crate::paradox::edit::detect_newline;
 use crate::text_file;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalisationEntry {
     pub key: String,

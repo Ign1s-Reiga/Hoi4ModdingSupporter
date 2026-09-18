@@ -47,11 +47,46 @@ export interface RecentProject {
   lastOpened: number;
 }
 
+/** How the app is exposed to MCP clients. */
+export interface McpSettings {
+  enabled: boolean;
+  port: number;
+  /** Bearer token every request must carry. Minted once by the backend. */
+  token: string;
+}
+
 export interface Settings {
   version: number;
   theme: ThemeMode;
   gameRootPath: string;
   recentProjects: RecentProject[];
+  mcp: McpSettings;
+}
+
+export interface McpStatus {
+  enabled: boolean;
+  running: boolean;
+  /** The URL a client connects to, when running. */
+  address: string | null;
+  port: number;
+  token: string;
+  toolCount: number;
+}
+
+export type ConsoleLevel = 'info' | 'warn' | 'error';
+
+/** Who did the thing being logged: the app, a file write, or the MCP server. */
+export type ConsoleSource = 'app' | 'files' | 'mcp';
+
+export interface ConsoleEntry {
+  id: number;
+  /** Milliseconds since the Unix epoch. */
+  atMs: number;
+  level: ConsoleLevel;
+  source: ConsoleSource;
+  message: string;
+  /** Longer text shown when expanded: tool arguments, a result, an error. */
+  detail: string | null;
 }
 
 export interface TextFile {

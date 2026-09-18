@@ -9,6 +9,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import type {
+  ConsoleEntry,
   CountryHistory,
   CountryHistoryInfo,
   CountryHistoryUpdate,
@@ -20,6 +21,7 @@ import type {
   LocalisationFileInfo,
   MapMode,
   MapSummary,
+  McpStatus,
   ModProject,
   ProvincePick,
   ScanResult,
@@ -48,6 +50,22 @@ export const api = {
   loadSettings: () => call<Settings>('load_settings'),
 
   saveSettings: (settings: Settings) => call<Settings>('save_settings', { settings }),
+
+  /**
+   * Tells the backend which project the window has open, so the MCP server
+   * works on the same one. Null when the project is closed.
+   */
+  setOpenProject: (project: ModProject | null) => call<void>('set_open_project', { project }),
+
+  /** Everything logged since the app started, oldest first. */
+  consoleEntries: () => call<ConsoleEntry[]>('console_entries'),
+
+  consoleClear: () => call<void>('console_clear'),
+
+  mcpStatus: () => call<McpStatus>('mcp_status'),
+
+  /** Mints a new token and restarts the server, cutting off clients holding the old one. */
+  mcpRegenerateToken: () => call<McpStatus>('mcp_regenerate_token'),
 
   /** Reads a descriptor and moves the project to the top of the recent list. */
   openModProject: (modFilePath: string) => call<ModProject>('open_mod_project', { modFilePath }),

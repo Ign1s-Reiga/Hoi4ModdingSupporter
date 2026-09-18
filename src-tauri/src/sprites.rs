@@ -10,19 +10,25 @@
 //!   folder defined the sprite, because dropping a file at the same relative
 //!   path is how art is usually replaced.
 //!
-//! Indexing means parsing a few hundred files, so callers are expected to hold
-//! on to a `SpriteIndex` rather than build one per icon.
+//! Indexing means parsing a few hundred files, so the index is kept in
+//! [`SpriteCache`] between calls and rebuilt only when the mod or the game
+//! folder it was built for changes.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 
 use crate::assets;
+use crate::console::{self, Source};
+use crate::error::{AppError, AppResult};
 use crate::paradox::{self, Block, Item, Items};
 use crate::project::normalise_path;
-use crate::text_file;
+use crate::{settings, text_file};
 
 /// Icons are drawn small, so the art is downscaled before it crosses the
 /// bridge. Anything wanting it at full size has the texture path.
@@ -43,10 +49,23 @@ pub struct SpriteIcon {
 }
 
 struct Sprite {
+    /// The name as the `.gfx` file spells it, for showing to people.
+    name: String,
     /// Texture path as written, relative to a mod or game folder.
     texture: String,
     /// `noOfFrames`: one strip holds the same icon in several states.
     frames: u32,
+}
+
+/// One hit from [`SpriteIndex::search`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpriteMatch {
+    pub name: String,
+    /// Texture path as written in the definition, relative to a mod or game
+    /// folder; not checked against the disk.
+    pub texture: String,
+    pub frames: u32,
 }
 
 pub struct SpriteIndex {
@@ -55,6 +74,38 @@ pub struct SpriteIndex {
 }
 
 impl SpriteIndex {
+    pub fn len(&self) -> usize {
+        self.sprites.len()
+    }
+
+    /// Sprites whose name contains `query`, however either is cased. Sorted by
+    /// name so the same search always reads the same way.
+    pub fn search(&self, query: &str, limit: usize) -> Vec<SpriteMatch> {
+        let needle = query.trim().to_uppercase();
+
+        let mut hits: Vec<SpriteMatch> = self
+            .sprites
+            .iter()
+            .filter(|(key, _)| needle.is_empty() || key.contains(&needle))
+            .map(|(_, sprite)| SpriteMatch {
+                name: sprite.name.clone(),
+                texture: sprite.texture.clone(),
+                frames: sprite.frames,
+            })
+            .collect();
+
+        hits.sort_by(|left, right| left.name.cmp(&right.name));
+        hits.truncate(limit);
+        hits
+    }
+
+    /// The texture a sprite points at, resolved on disk the way the game
+    /// would, or `None` when the name is undefined or the file is missing.
+    pub fn texture_path(&self, name: &str, folder: &str, game_root: &str) -> Option<PathBuf> {
+        let sprite = self.sprites.get(&key(name))?;
+        resolve_texture(&sprite.texture, folder, game_root)
+    }
+
     /// Decodes one sprite for display. A name nothing defines, a texture that
     /// is not on disk and a file the decoder rejects all come back the same
     /// way — an icon with no picture — because each leaves the caller drawing
@@ -79,6 +130,115 @@ impl SpriteIndex {
             path: normalise_path(&texture),
         }
     }
+}
+
+/// The sprites a mod plays with, kept between calls because building the
+/// index means parsing every `.gfx` file the game and the mod ship.
+#[derive(Default)]
+pub struct SpriteCache(Mutex<Option<Cached>>);
+
+struct Cached {
+    /// The mod and game folders the index was built from. The game folder
+    /// can be repointed in Settings, which changes what a name resolves to.
+    folder: String,
+    game_root: String,
+    index: SpriteIndex,
+    /// Pictures already decoded, so a tree pointing thirty focuses at the same
+    /// goal icon decodes it once.
+    icons: HashMap<String, SpriteIcon>,
+}
+
+/// Runs `action` against the index for `folder`, building it first when the
+/// cache holds another mod's or none at all.
+pub fn with_index<T>(
+    app: &AppHandle,
+    folder: &str,
+    action: impl FnOnce(&SpriteIndex, &str, &str) -> T,
+) -> AppResult<T> {
+    let game_root = settings::load(app)?.game_root_path;
+    let cache = app.state::<SpriteCache>();
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the sprite cache was left in a broken state"))?;
+
+    let cached = ensure(app, &mut slot, folder, &game_root);
+    Ok(action(&cached.index, &cached.folder, &cached.game_root))
+}
+
+/// Resolves sprite names to pictures the window can draw, decoding each name
+/// once. Names are asked for in batches because a focus tree wants its whole
+/// set at once, and the answer for a name nothing defines is worth keeping
+/// too: an editor asks again on every keystroke while one is being typed.
+pub fn icons(app: &AppHandle, folder: &str, names: Vec<String>) -> AppResult<Vec<SpriteIcon>> {
+    let game_root = settings::load(app)?.game_root_path;
+    let cache = app.state::<SpriteCache>();
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the sprite cache was left in a broken state"))?;
+
+    let Cached {
+        folder,
+        game_root,
+        index,
+        icons,
+    } = ensure(app, &mut slot, folder, &game_root);
+
+    Ok(names
+        .into_iter()
+        .map(|name| {
+            icons
+                .entry(name.clone())
+                .or_insert_with(|| index.icon(&name, folder, game_root))
+                .clone()
+        })
+        .collect())
+}
+
+/// Forgets the index and every icon decoded from it, so the next call reads
+/// the `.gfx` files again.
+pub fn forget(app: &AppHandle) {
+    if let Ok(mut slot) = app.state::<SpriteCache>().0.lock() {
+        *slot = None;
+    }
+}
+
+/// The cached index for these folders, built if the slot holds another.
+fn ensure<'a>(
+    app: &AppHandle,
+    slot: &'a mut Option<Cached>,
+    folder: &str,
+    game_root: &str,
+) -> &'a mut Cached {
+    let current = slot
+        .as_ref()
+        .is_some_and(|cached| cached.folder == folder && cached.game_root == game_root);
+    if !current {
+        *slot = None;
+    }
+
+    slot.get_or_insert_with(|| {
+        let started = Instant::now();
+        let index = index(folder, game_root);
+        console::info(
+            app,
+            Source::App,
+            format!(
+                "Indexed {} sprites in {} ms",
+                index.len(),
+                started.elapsed().as_millis()
+            ),
+            None,
+        );
+
+        Cached {
+            folder: folder.to_string(),
+            game_root: game_root.to_string(),
+            index,
+            icons: HashMap::new(),
+        }
+    })
 }
 
 /// Reads every sprite definition the mod plays with.
@@ -160,7 +320,14 @@ fn read_sprite(block: &Block) -> Option<(String, Sprite)> {
         .filter(|frames| *frames > 1)
         .unwrap_or(1);
 
-    Some((key(&name), Sprite { texture, frames }))
+    Some((
+        key(&name),
+        Sprite {
+            name: name.trim().to_string(),
+            texture,
+            frames,
+        },
+    ))
 }
 
 fn key(name: &str) -> String {
@@ -340,6 +507,24 @@ spriteTypes = {
         let icon = index(&folder, "").icon("GFX_focus_solo", &folder, "");
 
         assert!(icon.url.is_some());
+    }
+
+    #[test]
+    fn search_matches_any_part_of_the_name_and_keeps_the_original_spelling() {
+        let (folder, game) = fixture("search");
+
+        let index = index(&folder, &game);
+        let hits = index.search("GENERIC_ARMY", 10);
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].name, "GFX_focus_generic_army");
+        assert_eq!(hits[0].frames, 2);
+        assert_eq!(
+            index.search("", 1).len(),
+            1,
+            "an empty query lists everything, capped"
+        );
+        assert!(index.search("nothing_like_this", 10).is_empty());
     }
 
     #[test]

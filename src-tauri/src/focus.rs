@@ -67,7 +67,7 @@ pub struct FocusFile {
 }
 
 /// The editable fields sent back when saving. Empty strings clear a field.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FocusUpdate {
     pub id: String,
