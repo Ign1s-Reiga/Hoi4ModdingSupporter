@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FileText, FolderTree, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { FileText, FolderTree, ImageOff, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FocusCanvas } from '@/components/focus-canvas';
@@ -12,14 +12,22 @@ import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/com
 import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useSpriteIcons } from '@/lib/use-sprite-icons';
 import { useUnsavedIn } from '@/lib/use-unsaved';
-import { emptyFocusUpdate, toFocusUpdate, type FocusFile, type FocusUpdate, type ProjectFile } from '@/lib/types';
+import {
+  emptyFocusUpdate,
+  toFocusUpdate,
+  type FocusFile,
+  type FocusUpdate,
+  type ProjectFile,
+  type SpriteIcon,
+} from '@/lib/types';
 import { isInFolder } from '@/lib/utils';
 
 const FOCUS_FOLDER = 'common/national_focus';
 
 export default function FocusPage() {
-  const { scan, setError } = useAppStore();
+  const { project, scan, setError } = useAppStore();
 
   const [selectedFile, setSelectedFile] = React.useState<ProjectFile | null>(null);
   const [focusFile, setFocusFile] = React.useState<FocusFile | null>(null);
@@ -41,8 +49,17 @@ export default function FocusPage() {
 
   useUnsavedIn('focus editor', isDirty);
 
-  const focuses = focusFile?.focuses ?? [];
+  const focuses = React.useMemo(() => focusFile?.focuses ?? [], [focusFile]);
   const selected = focuses.find((focus) => focus.id === selectedId) ?? null;
+
+  // The tree is drawn from the draft rather than the file, so a dragged node
+  // and a retyped icon both show before anything is saved.
+  const shown = React.useMemo(
+    () => focuses.map((focus) => (focus.id === selectedId && draft ? { ...focus, ...draft } : focus)),
+    [draft, focuses, selectedId],
+  );
+  const iconNames = React.useMemo(() => shown.map((focus) => focus.icon), [shown]);
+  const icons = useSpriteIcons(project?.folderPath, iconNames);
 
   async function openFile(file: ProjectFile) {
     if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
@@ -230,7 +247,8 @@ export default function FocusPage() {
             />
           ) : (
             <FocusCanvas
-              focuses={focuses.map((focus) => (focus.id === selectedId && draft ? { ...focus, ...draft } : focus))}
+              focuses={shown}
+              icons={icons}
               selectedId={selectedId}
               onSelect={(id) => void selectFocus(id)}
               onMove={(id, x, y) => void moveFocus(id, x, y)}
@@ -262,7 +280,12 @@ export default function FocusPage() {
           {!draft ? (
             <EmptyState title='Select a focus' description='Pick one from the list or the tree to edit its fields.' />
           ) : (
-            <FocusForm draft={draft} focusIds={focuses.map((focus) => focus.id).filter(Boolean)} onChange={patch} />
+            <FocusForm
+              draft={draft}
+              icon={icons.get(draft.icon.trim())}
+              focusIds={focuses.map((focus) => focus.id).filter(Boolean)}
+              onChange={patch}
+            />
           )}
         </PanelBody>
       </Panel>
@@ -285,10 +308,13 @@ export default function FocusPage() {
 
 function FocusForm({
   draft,
+  icon,
   focusIds,
   onChange,
 }: {
   draft: FocusUpdate;
+  /** What the sprite name resolves to, undefined while it is being looked up. */
+  icon: SpriteIcon | undefined;
   focusIds: string[];
   onChange: (changes: Partial<FocusUpdate>) => void;
 }) {
@@ -306,9 +332,10 @@ function FocusForm({
         <CodeInput value={draft.id} onChange={(event) => onChange({ id: event.target.value })} />
       </Field>
 
-      <Field label='Icon' hint='Sprite name, e.g. GFX_goal_generic_army_doctrines'>
+      <Field label='Icon' hint={draft.icon.trim() ? undefined : 'Sprite name, e.g. GFX_goal_generic_army_doctrines'}>
         <CodeInput value={draft.icon} onChange={(event) => onChange({ icon: event.target.value })} />
       </Field>
+      {draft.icon.trim() ? <IconPreview icon={icon} /> : null}
 
       <div className='grid grid-cols-3 gap-2'>
         <Field label='X'>
@@ -398,6 +425,33 @@ function FocusForm({
         onChange={(value) => onChange({ allowBranch: value })}
       />
       <BlockField label='AI will do' value={draft.aiWillDo} onChange={(value) => onChange({ aiWillDo: value })} />
+    </div>
+  );
+}
+
+/**
+ * The art the sprite name resolves to, and the texture it came from.
+ *
+ * The path is worth the line it takes: a name resolving to a file inside the
+ * game folder is how a mod that meant to ship its own art shows up.
+ */
+function IconPreview({ icon }: { icon: SpriteIcon | undefined }) {
+  return (
+    <div className='-mt-1 flex items-center gap-2'>
+      <span className='flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-sunken'>
+        {icon?.url ? (
+          // Data URL produced by the backend, so next/image cannot help here.
+          // oxlint-disable-next-line next/no-img-element
+          <img src={icon.url} alt='' className='max-h-full max-w-full object-contain' />
+        ) : (
+          <ImageOff className='size-3.5 text-border-strong' />
+        )}
+      </span>
+      {/* Nothing is said until the lookup answers, so a name being typed does
+          not flash "not found" between keystrokes. */}
+      <p className='min-w-0 truncate text-xs text-muted' title={icon?.path}>
+        {icon === undefined ? '' : icon.path || 'No interface/*.gfx file defines this sprite'}
+      </p>
     </div>
   );
 }

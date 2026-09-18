@@ -18,7 +18,21 @@ use crate::error::{AppError, AppResult};
 const PASSTHROUGH_LIMIT_BYTES: u64 = 512 * 1024;
 
 pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<String> {
-    let file = Path::new(path);
+    data_url(Path::new(path), max_dimension, 1)
+}
+
+/// The first frame of a sprite.
+///
+/// Clausewitz stores the frames of an animated sprite side by side in one
+/// texture, so a two frame goal icon is drawn from a picture twice as wide as
+/// the icon: passing the whole strip through would show the icon and its
+/// greyed out twin next to each other.
+pub fn sprite_data_url(path: &Path, max_dimension: Option<u32>, frames: u32) -> AppResult<String> {
+    data_url(path, max_dimension, frames)
+}
+
+fn data_url(file: &Path, max_dimension: Option<u32>, frames: u32) -> AppResult<String> {
+    let path = file.display().to_string();
     let bytes = std::fs::read(file).map_err(|source| AppError::io(file, source))?;
 
     let extension = file
@@ -27,7 +41,8 @@ pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<Strin
         .unwrap_or_default();
 
     let native_mime = web_native_mime(&extension);
-    let needs_decode = native_mime.is_none()
+    let needs_decode = frames > 1
+        || native_mime.is_none()
         || (max_dimension.is_some() && bytes.len() as u64 > PASSTHROUGH_LIMIT_BYTES);
 
     if !needs_decode {
@@ -36,15 +51,22 @@ pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<Strin
     }
 
     let format = image_format(&extension).ok_or_else(|| AppError::Image {
-        path: path.to_string(),
+        path: path.clone(),
         message: format!("`{extension}` files cannot be previewed"),
     })?;
 
     let decoded =
         image::load_from_memory_with_format(&bytes, format).map_err(|error| AppError::Image {
-            path: path.to_string(),
+            path: path.clone(),
             message: error.to_string(),
         })?;
+
+    // A frame count wider than the texture would crop it to nothing.
+    let decoded = if frames > 1 && decoded.width() >= frames {
+        decoded.crop_imm(0, 0, decoded.width() / frames, decoded.height())
+    } else {
+        decoded
+    };
 
     let decoded = match max_dimension {
         Some(limit) if decoded.width() > limit || decoded.height() > limit => {
@@ -57,7 +79,7 @@ pub fn image_data_url(path: &str, max_dimension: Option<u32>) -> AppResult<Strin
     decoded
         .write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png)
         .map_err(|error| AppError::Image {
-            path: path.to_string(),
+            path,
             message: error.to_string(),
         })?;
 
@@ -118,6 +140,27 @@ mod tests {
 
         let url = image_data_url(&path.display().to_string(), None).expect("encodes");
         assert!(url.starts_with("data:image/png;base64,"));
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn keeps_only_the_first_frame_of_a_sprite_strip() {
+        let directory = std::env::temp_dir().join("hoi4ms-asset-tests");
+        std::fs::create_dir_all(&directory).expect("temp dir");
+        let path = directory.join("strip.png");
+
+        // Two frames of eight pixels, as an animated sprite stores them.
+        let image = image::RgbaImage::from_pixel(16, 8, image::Rgba([12, 34, 56, 255]));
+        image.save(&path).expect("save");
+
+        let url = sprite_data_url(&path, None, 2).expect("encodes");
+        let bytes = STANDARD
+            .decode(url.trim_start_matches("data:image/png;base64,"))
+            .expect("base64");
+        let decoded = image::load_from_memory(&bytes).expect("png");
+
+        assert_eq!((decoded.width(), decoded.height()), (8, 8));
 
         std::fs::remove_file(&path).ok();
     }
