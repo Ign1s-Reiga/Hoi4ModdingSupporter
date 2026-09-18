@@ -9,7 +9,8 @@ use std::path::Path;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use image::ImageFormat;
+use image::{DynamicImage, ImageFormat};
+use image_dds::ddsfile::Dds;
 
 use crate::error::{AppError, AppResult};
 
@@ -40,7 +41,12 @@ fn data_url(file: &Path, max_dimension: Option<u32>, frames: u32) -> AppResult<S
         .map(|value| value.to_string_lossy().to_lowercase())
         .unwrap_or_default();
 
-    let native_mime = web_native_mime(&extension);
+    let format = detect_format(&bytes, &extension).ok_or_else(|| AppError::Image {
+        path: path.clone(),
+        message: format!("`{extension}` files cannot be previewed"),
+    })?;
+
+    let native_mime = web_native_mime(format);
     let needs_decode = frames > 1
         || native_mime.is_none()
         || (max_dimension.is_some() && bytes.len() as u64 > PASSTHROUGH_LIMIT_BYTES);
@@ -50,16 +56,10 @@ fn data_url(file: &Path, max_dimension: Option<u32>, frames: u32) -> AppResult<S
         return Ok(format!("data:{mime};base64,{}", STANDARD.encode(&bytes)));
     }
 
-    let format = image_format(&extension).ok_or_else(|| AppError::Image {
+    let decoded = decode(&bytes, format).map_err(|message| AppError::Image {
         path: path.clone(),
-        message: format!("`{extension}` files cannot be previewed"),
+        message,
     })?;
-
-    let decoded =
-        image::load_from_memory_with_format(&bytes, format).map_err(|error| AppError::Image {
-            path: path.clone(),
-            message: error.to_string(),
-        })?;
 
     // A frame count wider than the texture would crop it to nothing.
     let decoded = if frames > 1 && decoded.width() >= frames {
@@ -89,13 +89,47 @@ fn data_url(file: &Path, max_dimension: Option<u32>, frames: u32) -> AppResult<S
     ))
 }
 
+/// What the bytes are, falling back to what the file is called.
+///
+/// The header is asked first because mods ship art whose name says one thing
+/// and whose content says another — a PNG saved as `.dds` is common, and the
+/// game loads it, because it reads the header too. `.tga` has no magic number
+/// of its own, which is why the extension still has the last word.
+fn detect_format(bytes: &[u8], extension: &str) -> Option<ImageFormat> {
+    image::guess_format(bytes)
+        .ok()
+        .or_else(|| image_format(extension))
+}
+
+/// Decodes a texture, DDS through `image_dds` and everything else through
+/// `image`.
+///
+/// `image` reads only the DXT compressed DDS variants, and nearly every
+/// texture the game ships is uncompressed — a masked `A8R8G8B8` surface — so
+/// its own decoder would refuse the whole `gfx` folder. `image_dds` reads
+/// those, the DXT ones, and the BC4 to BC7 compressions a mod may have saved.
+///
+/// The error is a message because that is all it is ever used for: the caller
+/// pairs it with the path that failed.
+fn decode(bytes: &[u8], format: ImageFormat) -> Result<DynamicImage, String> {
+    if format == ImageFormat::Dds {
+        let dds = Dds::read(bytes).map_err(|error| error.to_string())?;
+        // Mip level zero is the full sized surface.
+        let surface = image_dds::image_from_dds(&dds, 0).map_err(|error| error.to_string())?;
+
+        return Ok(DynamicImage::ImageRgba8(surface));
+    }
+
+    image::load_from_memory_with_format(bytes, format).map_err(|error| error.to_string())
+}
+
 /// Formats a WebView can display without any conversion.
-fn web_native_mime(extension: &str) -> Option<&'static str> {
-    match extension {
-        "png" => Some("image/png"),
-        "jpg" | "jpeg" => Some("image/jpeg"),
-        "gif" => Some("image/gif"),
-        "bmp" => Some("image/bmp"),
+fn web_native_mime(format: ImageFormat) -> Option<&'static str> {
+    match format {
+        ImageFormat::Png => Some("image/png"),
+        ImageFormat::Jpeg => Some("image/jpeg"),
+        ImageFormat::Gif => Some("image/gif"),
+        ImageFormat::Bmp => Some("image/bmp"),
         _ => None,
     }
 }
@@ -125,8 +159,71 @@ mod tests {
 
     #[test]
     fn passes_through_web_native_formats() {
-        assert_eq!(web_native_mime("png"), Some("image/png"));
-        assert_eq!(web_native_mime("tga"), None);
+        assert_eq!(web_native_mime(ImageFormat::Png), Some("image/png"));
+        assert_eq!(web_native_mime(ImageFormat::Tga), None);
+    }
+
+    /// A one pixel uncompressed `B8G8R8A8` surface, the layout the game saves
+    /// its interface art in.
+    fn uncompressed_dds() -> Vec<u8> {
+        let mut bytes = Vec::from(*b"DDS ");
+
+        let mut header = [0u32; 31];
+        header[0] = 124;
+        header[1] = 0x1_00f;
+        header[2] = 1;
+        header[3] = 1;
+        header[4] = 4;
+        header[18] = 32;
+        header[19] = 0x41;
+        header[21] = 32;
+        header[22] = 0x00ff_0000;
+        header[23] = 0x0000_ff00;
+        header[24] = 0x0000_00ff;
+        header[25] = 0xff00_0000;
+
+        for value in header {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes.extend_from_slice(&[0x38, 0x22, 0x0c, 0xff]);
+        bytes
+    }
+
+    #[test]
+    fn previews_the_uncompressed_dds_the_game_ships() {
+        let directory = std::env::temp_dir().join("hoi4ms-asset-tests");
+        std::fs::create_dir_all(&directory).expect("temp dir");
+        let path = directory.join("icon.dds");
+        std::fs::write(&path, uncompressed_dds()).expect("write");
+
+        let url = image_data_url(&path.display().to_string(), None).expect("encodes");
+        let bytes = STANDARD
+            .decode(url.trim_start_matches("data:image/png;base64,"))
+            .expect("base64");
+        let decoded = image::load_from_memory(&bytes).expect("png").to_rgba8();
+
+        // Read back in the order the browser will draw it, not as stored.
+        assert_eq!(decoded.get_pixel(0, 0), &image::Rgba([12, 34, 56, 255]));
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn previews_a_png_a_mod_named_dds() {
+        // The game reads the header rather than the name, and mods rely on it.
+        let directory = std::env::temp_dir().join("hoi4ms-asset-tests");
+        std::fs::create_dir_all(&directory).expect("temp dir");
+        let path = directory.join("misnamed.dds");
+
+        let image = image::RgbaImage::from_pixel(4, 4, image::Rgba([12, 34, 56, 255]));
+        image
+            .save_with_format(&path, ImageFormat::Png)
+            .expect("save");
+
+        let url = image_data_url(&path.display().to_string(), None).expect("encodes");
+        assert!(url.starts_with("data:image/png;base64,"));
+
+        std::fs::remove_file(&path).ok();
     }
 
     #[test]

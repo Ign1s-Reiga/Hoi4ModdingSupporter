@@ -29,7 +29,19 @@ image = { version = "0.25", default-features = false, features = [
   "gif",
   "bmp",
   "tga",
-  "dds",
+] }
+
+# DDS is read through this rather than `image`, which decodes only the DXT
+# variants: the game writes its interface art uncompressed, with the old style
+# masked header, and mods ship every block compression up to BC7.
+#
+# Decoding only. The default features add `encode`, which pulls `intel_tex_2`
+# and with it a C++ toolchain, to write textures this tool never writes; they
+# also add `strum`, for naming formats nothing here names. `ddsfile` and
+# `image` are its own dependencies, re-exported, so neither is declared twice.
+image_dds = { version = "0.7", default-features = false, features = [
+  "ddsfile",
+  "image",
 ] }
 
 # Decoding a forty megabyte bitmap and painting thirteen million pixels is
