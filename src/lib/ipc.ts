@@ -24,6 +24,7 @@ import type {
   ProvincePick,
   ScanResult,
   Settings,
+  SpriteIcon,
   StateFile,
   StateUpdate,
   TextFile,
@@ -115,6 +116,14 @@ export const api = {
   /** Base64 data URL, converting `.tga`/`.dds` to PNG on the way. */
   readImageDataUrl: (path: string, maxDimension?: number) =>
     call<string>('read_image_data_url', { path, maxDimension }),
+
+  /**
+   * Resolves sprite names against the mod's `interface/*.gfx` and the game's.
+   *
+   * Asked in batches: the backend keeps the index and the decoded pictures, so
+   * one call for a whole focus tree costs a great deal less than one per node.
+   */
+  spriteIcons: (folderPath: string, names: string[]) => call<SpriteIcon[]>('sprite_icons', { folderPath, names }),
 
   pathExists: (path: string) => call<boolean>('path_exists', { path }),
 

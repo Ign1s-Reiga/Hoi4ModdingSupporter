@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { ImageOff } from 'lucide-react';
 
 import {
   boundsOf,
@@ -14,6 +15,7 @@ import {
   type Placement,
 } from '@/lib/focus-layout';
 import type { Focus } from '@/lib/types';
+import type { SpriteMap } from '@/lib/use-sprite-icons';
 import { cn } from '@/lib/utils';
 
 /** Reset and first paint both use this. */
@@ -21,6 +23,8 @@ const DEFAULT_ZOOM = 1;
 
 interface FocusCanvasProps {
   focuses: Focus[];
+  /** Art for the `icon` of each focus, keyed by sprite name. */
+  icons: SpriteMap;
   selectedId: string | null;
   onSelect: (id: string) => void;
   /** Called with whole-grid coordinates when a node is dragged. */
@@ -31,9 +35,11 @@ interface FocusCanvasProps {
  * A pannable, zoomable view of a focus tree.
  *
  * Nodes sit on the same grid the game uses, so dragging one and saving writes
- * the `x`/`y` a modder would otherwise count out by hand.
+ * the `x`/`y` a modder would otherwise count out by hand. Each carries the
+ * icon the game would draw, which is how a tree is read at a glance: the ids
+ * alone all look alike from a step back.
  */
-export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanvasProps) {
+export function FocusCanvas({ focuses, icons, selectedId, onSelect, onMove }: FocusCanvasProps) {
   // The canvas grid matches the game at 1:1, so that is where it starts.
   const [zoom, setZoom] = React.useState(DEFAULT_ZOOM);
   const [pan, setPan] = React.useState({ x: 24, y: 24 });
@@ -200,6 +206,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
           {focuses.map((focus) => {
             const origin = nodeOrigin(effective(focus), bounds);
             const isSelected = focus.id === selectedId;
+            const icon = icons.get(focus.icon.trim());
 
             return (
               <button
@@ -209,7 +216,7 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
                 onPointerDown={(event) => startDrag(event, focus)}
                 onClick={() => onSelect(focus.id)}
                 className={cn(
-                  'absolute flex flex-col justify-center gap-0.5 rounded-md border px-2 text-left transition-colors',
+                  'absolute flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-1.5 transition-colors',
                   isSelected
                     ? 'border-accent bg-accent-soft shadow-[0_0_0_1px_var(--accent)]'
                     : 'border-border bg-surface hover:border-border-strong',
@@ -220,12 +227,28 @@ export function FocusCanvas({ focuses, selectedId, onSelect, onMove }: FocusCanv
                   width: NODE_WIDTH,
                   height: NODE_HEIGHT,
                 }}
-                title={focus.id}
+                title={focus.icon ? `${focus.id} · ${focus.icon}` : focus.id}
               >
-                <span className='truncate font-mono text-[0.6875rem] leading-tight text-foreground'>
+                <span className='flex h-9 items-center justify-center'>
+                  {icon?.url ? (
+                    // Data URL produced by the backend, so next/image cannot help here.
+                    // oxlint-disable-next-line next/no-img-element
+                    <img
+                      src={icon.url}
+                      alt=''
+                      // Without this the browser drags the picture out of the
+                      // node instead of moving the focus.
+                      draggable={false}
+                      className='max-h-9 max-w-full object-contain'
+                    />
+                  ) : (
+                    <ImageOff className='size-4 text-border-strong' />
+                  )}
+                </span>
+                <span className='w-full truncate text-center font-mono text-[0.6875rem] leading-tight text-foreground'>
                   {focus.id || '(no id)'}
                 </span>
-                <span className='truncate text-[0.625rem] text-muted'>
+                <span className='w-full truncate text-center text-[0.625rem] text-muted'>
                   {focus.cost ? `${focus.cost} days` : 'no cost'}
                   {focus.shared ? ' · shared' : ''}
                 </span>

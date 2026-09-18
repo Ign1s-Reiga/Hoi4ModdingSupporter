@@ -7,9 +7,11 @@ mod map;
 mod paradox;
 mod project;
 mod settings;
+mod sprites;
 mod state;
 mod text_file;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, State};
@@ -95,6 +97,7 @@ fn read_text_file(path: String) -> AppResult<text_file::TextFile> {
 #[tauri::command]
 fn write_text_file(
     cache: State<'_, MapCache>,
+    sprites: State<'_, SpriteCache>,
     path: String,
     content: String,
     encoding: text_file::Encoding,
@@ -102,17 +105,25 @@ fn write_text_file(
 ) -> AppResult<text_file::Encoding> {
     let written = text_file::write(std::path::Path::new(&path), &content, encoding, with_bom)?;
 
-    // The scripts page writes any file through here, state definitions and the
-    // map's own csv included. Which of them the map is built from is not worth
-    // guessing: dropping the cache costs one reload, and only if a map page is
-    // opened afterwards.
+    // The scripts page writes any file through here, state definitions, the
+    // map's own csv and `.gfx` sprite definitions included. Which of them the
+    // caches are built from is not worth guessing: dropping them costs one
+    // reload, and only if a page needing them is opened afterwards.
     drop_map_cache(&cache);
+    drop_sprite_cache(&sprites);
 
     Ok(written)
 }
 
 /// Forgets the decoded map, so the next map call rebuilds it from disk.
 fn drop_map_cache(cache: &MapCache) {
+    if let Ok(mut slot) = cache.0.lock() {
+        *slot = None;
+    }
+}
+
+/// Forgets the sprite index and every icon decoded from it.
+fn drop_sprite_cache(cache: &SpriteCache) {
     if let Ok(mut slot) = cache.0.lock() {
         *slot = None;
     }
@@ -303,6 +314,73 @@ fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<St
     assets::image_data_url(&path, max_dimension)
 }
 
+/// The sprites a mod plays with, kept between calls because building the index
+/// means parsing every `.gfx` file the game and the mod ship.
+#[derive(Default)]
+struct SpriteCache(Mutex<Option<CachedSprites>>);
+
+struct CachedSprites {
+    key: SpriteKey,
+    index: sprites::SpriteIndex,
+    /// Pictures already decoded, so a tree pointing thirty focuses at the same
+    /// goal icon decodes it once.
+    icons: HashMap<String, sprites::SpriteIcon>,
+}
+
+/// The mod folder and the game folder the index was built from. The game
+/// folder can be repointed in Settings, which changes what a name resolves to.
+#[derive(PartialEq, Eq)]
+struct SpriteKey {
+    folder: String,
+    game_root: String,
+}
+
+/// Resolves `GFX_...` names to pictures the window can draw.
+///
+/// Names are asked for in batches because a focus tree wants its whole set at
+/// once, and because the answer for a name nothing defines is worth caching
+/// too: an editor asks again on every keystroke while one is being typed.
+#[tauri::command]
+fn sprite_icons(
+    app: AppHandle,
+    cache: State<'_, SpriteCache>,
+    folder_path: String,
+    names: Vec<String>,
+) -> AppResult<Vec<sprites::SpriteIcon>> {
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the sprite cache was left in a broken state"))?;
+
+    let key = SpriteKey {
+        folder: folder_path,
+        game_root: settings::load(&app)?.game_root_path,
+    };
+
+    if slot.as_ref().map(|cached| &cached.key) != Some(&key) {
+        let index = sprites::index(&key.folder, &key.game_root);
+        *slot = Some(CachedSprites {
+            key,
+            index,
+            icons: HashMap::new(),
+        });
+    }
+
+    let CachedSprites { key, index, icons } = slot
+        .as_mut()
+        .ok_or_else(|| AppError::message("the sprites failed to load"))?;
+
+    Ok(names
+        .into_iter()
+        .map(|name| {
+            icons
+                .entry(name.clone())
+                .or_insert_with(|| index.icon(&name, &key.folder, &key.game_root))
+                .clone()
+        })
+        .collect())
+}
+
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
@@ -323,6 +401,7 @@ fn validate_game_root(path: String) -> AppResult<bool> {
 pub fn run() {
     tauri::Builder::default()
         .manage(MapCache::default())
+        .manage(SpriteCache::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -352,6 +431,7 @@ pub fn run() {
             read_localisation_file,
             write_localisation_file,
             read_image_data_url,
+            sprite_icons,
             path_exists,
             validate_game_root,
         ])

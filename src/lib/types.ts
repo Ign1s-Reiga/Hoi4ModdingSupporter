@@ -100,6 +100,24 @@ export interface FocusFile {
 
 export type FocusUpdate = Omit<Focus, 'treeId' | 'shared' | 'line'>;
 
+/** A `GFX_...` sprite name resolved through `interface/*.gfx` to its art. */
+export interface SpriteIcon {
+  name: string;
+  /** Data URL, or null when the sprite or its texture could not be found. */
+  url: string | null;
+  /** The texture behind it, empty when nothing resolved it. */
+  path: string;
+}
+
+/** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
+export interface SpriteIcon {
+  name: string;
+  /** Data URL, or null when the sprite or its texture could not be found. */
+  url: string | null;
+  /** The texture behind it, empty when nothing resolved it. */
+  path: string;
+}
+
 export interface LocalisationEntry {
   key: string;
   version: string;

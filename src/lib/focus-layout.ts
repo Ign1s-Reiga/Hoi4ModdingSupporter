@@ -4,7 +4,8 @@ import type { Focus } from './types';
 export const CELL_WIDTH = 124;
 export const CELL_HEIGHT = 148;
 export const NODE_WIDTH = 104;
-export const NODE_HEIGHT = 64;
+/** Room for the icon above the id and the cost, the way the game stacks them. */
+export const NODE_HEIGHT = 84;
 
 export interface Placement {
   x: number;
