@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { isDesktop } from './ipc';
+import { isDesktop } from '@/lib/ipc';
 
 /** The bridge is either there or it is not; it never appears later. */
 const subscribe = () => () => {};
