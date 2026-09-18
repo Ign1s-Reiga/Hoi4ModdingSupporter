@@ -177,10 +177,10 @@ impl<'a> Scope<'a> {
     }
 
     /// One edit appending `lines`, before the closing brace of a block or at
-    /// the end of a file.
-    fn insertion(&self, source: &str, lines: &[String]) -> TextEdit {
+    /// the end of a file. `removed` is every span the same save deletes.
+    fn insertion(&self, source: &str, lines: &[String], removed: &[Span]) -> TextEdit {
         match *self {
-            Scope::Block(block) => insert_lines(source, block, lines),
+            Scope::Block(block) => insert_lines(source, block, lines, removed),
             Scope::Document(document) => {
                 let newline = detect_newline(source);
                 let body = lines
@@ -312,6 +312,8 @@ pub struct BlockEditor<'a> {
     scope: Scope<'a>,
     edits: Vec<TextEdit>,
     additions: Vec<String>,
+    /// Spans the removals cover, so the insertion can look past them.
+    removed: Vec<Span>,
 }
 
 impl<'a> BlockEditor<'a> {
@@ -321,6 +323,7 @@ impl<'a> BlockEditor<'a> {
             scope: Scope::Block(block),
             edits: Vec::new(),
             additions: Vec::new(),
+            removed: Vec::new(),
         }
     }
 
@@ -332,6 +335,7 @@ impl<'a> BlockEditor<'a> {
             scope: Scope::Document(document),
             edits: Vec::new(),
             additions: Vec::new(),
+            removed: Vec::new(),
         }
     }
 
@@ -388,7 +392,7 @@ impl<'a> BlockEditor<'a> {
         }
 
         for pair in existing.iter().skip(wanted.len()) {
-            self.edits.extend(remove_pair(self.source, pair));
+            self.remove(pair);
         }
 
         for value in wanted.iter().skip(existing.len()) {
@@ -409,7 +413,10 @@ impl<'a> BlockEditor<'a> {
     }
 
     pub fn remove(&mut self, pair: &Pair) -> &mut Self {
-        self.edits.extend(remove_pair(self.source, pair));
+        for edit in remove_pair(self.source, pair) {
+            self.removed.push(edit.span);
+            self.edits.push(edit);
+        }
         self
     }
 
@@ -422,7 +429,12 @@ impl<'a> BlockEditor<'a> {
     fn apply(&mut self, change: Change) -> &mut Self {
         match change {
             Change::Replace(edit) => self.edits.push(edit),
-            Change::Remove(edits) => self.edits.extend(edits),
+            Change::Remove(edits) => {
+                for edit in edits {
+                    self.removed.push(edit.span);
+                    self.edits.push(edit);
+                }
+            }
             Change::Add(line) => self.additions.push(line),
             Change::Nothing => {}
         }
@@ -431,7 +443,9 @@ impl<'a> BlockEditor<'a> {
 
     pub fn finish(mut self) -> Vec<TextEdit> {
         if !self.additions.is_empty() {
-            let insertion = self.scope.insertion(self.source, &self.additions);
+            let insertion = self
+                .scope
+                .insertion(self.source, &self.additions, &self.removed);
             self.edits.push(insertion);
         }
         self.edits
@@ -458,7 +472,14 @@ pub fn remove_pair(source: &str, pair: &Pair) -> Vec<TextEdit> {
 
 /// An edit appending several lines inside `block`, as one contiguous rewrite so
 /// the caller never has to merge overlapping insertions at the same offset.
-pub fn insert_lines(source: &str, block: &Block, lines: &[String]) -> TextEdit {
+///
+/// The rewrite starts after the last byte that survives the save: `removed`
+/// is every span the same save deletes, and text inside one is treated as
+/// already gone. Anchoring on it instead would put this edit inside the
+/// removal's range, where `apply_edits` drops it as an overlap — and the
+/// added lines with it. Covering the dead text here is what makes the two
+/// edits one.
+pub fn insert_lines(source: &str, block: &Block, lines: &[String], removed: &[Span]) -> TextEdit {
     let newline = detect_newline(source);
     let indent = child_indent(source, block);
     let closing_indent = indent_at(source, block.span.start);
@@ -468,22 +489,22 @@ pub fn insert_lines(source: &str, block: &Block, lines: &[String]) -> TextEdit {
         .map(|line| format!("{newline}{indent}{line}"))
         .collect::<String>();
 
-    // Insert just before the closing brace.
+    // Insert just before the closing brace, after the last surviving content.
+    // A block with none left — empty, or emptied by this save — is rewritten
+    // from just inside its opening brace onto its own lines.
     let insert_at = block.inner.end;
-    let before = &source[block.inner.start..insert_at];
-
-    if before.trim().is_empty() {
-        // Empty block: expand it onto its own lines.
-        return TextEdit::new(
-            Span::new(block.inner.start, insert_at),
-            format!("{body}{newline}{closing_indent}"),
-        );
-    }
-
-    let trailing_start = source[..insert_at]
-        .rfind(|character: char| !character.is_whitespace())
-        .map(|index| index + 1)
-        .unwrap_or(insert_at);
+    let is_removed = |index: usize| {
+        removed
+            .iter()
+            .any(|span| span.start <= index && index < span.end)
+    };
+    let trailing_start = source[block.inner.start..insert_at]
+        .char_indices()
+        .rev()
+        .map(|(offset, character)| (block.inner.start + offset, character))
+        .find(|(index, character)| !character.is_whitespace() && !is_removed(*index))
+        .map(|(index, character)| index + character.len_utf8())
+        .unwrap_or(block.inner.start);
 
     TextEdit::new(
         Span::new(trailing_start, insert_at),
@@ -645,6 +666,97 @@ mod tests {
 
         assert!(!result.contains("cost"));
         assert!(result.contains("x = 1"));
+    }
+
+    #[test]
+    fn removing_the_last_field_keeps_a_field_added_in_the_same_save() {
+        // The insertion used to anchor on `cost`, inside the span that removes
+        // it, and apply_edits dropped the addition without a word.
+        let result = edit_focus(SOURCE, |editor| {
+            editor.set_scalar("cost", "");
+            editor.set_scalar("icon", "GFX_x");
+        });
+
+        assert!(!result.contains("cost"), "{result}");
+        assert!(
+            result.contains(
+                "
+		icon = GFX_x
+	}"
+            ),
+            "{result}"
+        );
+        assert!(result.contains("x = 1"));
+    }
+
+    #[test]
+    fn emptying_a_block_and_refilling_it_leaves_no_leftovers() {
+        let result = edit_focus(
+            "focus = { cost = 10 }
+",
+            |editor| {
+                editor.set_scalar("cost", "");
+                editor.set_scalar("id", "fresh");
+            },
+        );
+
+        assert_eq!(
+            result,
+            "focus = {
+	id = fresh
+}
+"
+        );
+    }
+
+    #[test]
+    fn a_comment_after_the_removed_field_still_anchors_the_insertion() {
+        let source = "focus = {
+	id = a
+	cost = 10
+	# tail note
+}
+";
+        let result = edit_focus(source, |editor| {
+            editor.set_scalar("cost", "");
+            editor.set_scalar("y", "2");
+        });
+
+        assert_eq!(
+            result,
+            "focus = {
+	id = a
+	# tail note
+	y = 2
+}
+"
+        );
+    }
+
+    #[test]
+    fn extra_repeated_values_removed_at_the_end_do_not_swallow_additions() {
+        let source = "state = {
+	id = 1
+	add_core_of = A
+	add_core_of = B
+}
+";
+        let document = parse(source).expect("parses");
+        let block = document.block("state").expect("block");
+        let mut editor = BlockEditor::new(source, block);
+        editor.set_repeated_scalars("add_core_of", &["A".to_string()]);
+        editor.set_scalar("owner", "A");
+        let result = apply_edits(source, editor.finish());
+
+        assert_eq!(
+            result,
+            "state = {
+	id = 1
+	add_core_of = A
+	owner = A
+}
+"
+        );
     }
 
     #[test]
