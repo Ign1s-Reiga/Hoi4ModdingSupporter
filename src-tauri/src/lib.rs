@@ -1,9 +1,11 @@
 mod assets;
+mod console;
 mod country_history;
 mod error;
 mod focus;
 mod localisation;
 mod map;
+mod mcp;
 mod paradox;
 mod project;
 mod settings;
@@ -11,11 +13,11 @@ mod sprites;
 mod state;
 mod text_file;
 
-use std::collections::HashMap;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
+use console::Source;
 use error::{AppError, AppResult};
 
 /// Upper bound for a full mod scan. Large total conversions land well under
@@ -31,8 +33,67 @@ fn load_settings(app: AppHandle) -> AppResult<settings::Settings> {
 
 #[tauri::command]
 fn save_settings(app: AppHandle, settings: settings::Settings) -> AppResult<settings::Settings> {
+    let before = settings::load(&app)?;
     settings::save(&app, &settings)?;
+
+    // The server reads its port and token once, at start, so a change to
+    // either takes effect by starting it again. Left alone otherwise: a
+    // theme change must not cut an assistant off mid-edit.
+    if before.mcp != settings.mcp {
+        if let Err(error) = mcp::restart(&app) {
+            console::error(&app, Source::Mcp, error.to_string(), None);
+        }
+    }
+
     Ok(settings)
+}
+
+/// The window reports which project it has open, so the MCP server works on
+/// the same one. `None` when the project is closed.
+#[tauri::command]
+fn set_open_project(app: AppHandle, project: Option<project::ModProject>) {
+    let open = app.state::<project::Open>();
+
+    // The window reports on every restore, which React runs twice in
+    // development; the same folder twice over is not a second opening.
+    let already = open.current().map(|current| current.folder_path).as_deref()
+        == project.as_ref().map(|next| next.folder_path.as_str());
+
+    if let (false, Some(project)) = (already, &project) {
+        console::info(
+            &app,
+            Source::App,
+            format!("Opened {} ({})", project.name, project.folder_path),
+            None,
+        );
+    }
+    open.set(project);
+}
+
+#[tauri::command]
+fn console_entries(console: State<'_, console::Console>) -> Vec<console::Entry> {
+    console.entries()
+}
+
+#[tauri::command]
+fn console_clear(app: AppHandle) {
+    console::clear(&app);
+}
+
+#[tauri::command]
+fn mcp_status(app: AppHandle) -> AppResult<mcp::McpStatus> {
+    mcp::status(&app)
+}
+
+/// Mints a new bearer token and restarts the server with it, so any client
+/// still holding the old one is cut off.
+#[tauri::command]
+fn mcp_regenerate_token(app: AppHandle) -> AppResult<mcp::McpStatus> {
+    let mut settings = settings::load(&app)?;
+    settings.mcp.token = settings::new_token();
+    settings::save(&app, &settings)?;
+    console::info(&app, Source::Mcp, "MCP token regenerated", None);
+    mcp::restart(&app)
 }
 
 /// Reads a `.mod` descriptor and moves the project to the top of the recents.
@@ -96,8 +157,7 @@ fn read_text_file(path: String) -> AppResult<text_file::TextFile> {
 
 #[tauri::command]
 fn write_text_file(
-    cache: State<'_, MapCache>,
-    sprites: State<'_, SpriteCache>,
+    app: AppHandle,
     path: String,
     content: String,
     encoding: text_file::Encoding,
@@ -109,24 +169,24 @@ fn write_text_file(
     // map's own csv and `.gfx` sprite definitions included. Which of them the
     // caches are built from is not worth guessing: dropping them costs one
     // reload, and only if a page needing them is opened afterwards.
-    drop_map_cache(&cache);
-    drop_sprite_cache(&sprites);
+    forget_caches(&app);
+    console::info(
+        &app,
+        Source::Files,
+        format!("Wrote {path}"),
+        Some(format!("{} bytes, {written:?}", content.len())),
+    );
 
     Ok(written)
 }
 
-/// Forgets the decoded map, so the next map call rebuilds it from disk.
-fn drop_map_cache(cache: &MapCache) {
-    if let Ok(mut slot) = cache.0.lock() {
+/// Forgets the decoded map and the sprite index, so the next call to either
+/// rebuilds it from disk. Any write can invalidate both.
+pub(crate) fn forget_caches(app: &AppHandle) {
+    if let Ok(mut slot) = app.state::<MapCache>().0.lock() {
         *slot = None;
     }
-}
-
-/// Forgets the sprite index and every icon decoded from it.
-fn drop_sprite_cache(cache: &SpriteCache) {
-    if let Ok(mut slot) = cache.0.lock() {
-        *slot = None;
-    }
+    sprites::forget(app);
 }
 
 #[tauri::command]
@@ -136,25 +196,48 @@ fn read_focus_file(path: String) -> AppResult<focus::FocusFile> {
 
 #[tauri::command]
 fn update_focus(
+    app: AppHandle,
     path: String,
     focus_id: String,
     update: focus::FocusUpdate,
 ) -> AppResult<focus::FocusFile> {
-    focus::update(&path, &focus_id, &update)
+    let saved = focus::update(&path, &focus_id, &update)?;
+    console::info(
+        &app,
+        Source::Files,
+        format!("Updated focus {focus_id} in {path}"),
+        None,
+    );
+    Ok(saved)
 }
 
 #[tauri::command]
 fn add_focus(
+    app: AppHandle,
     path: String,
     tree_id: String,
     focus: focus::FocusUpdate,
 ) -> AppResult<focus::FocusFile> {
-    focus::add(&path, &tree_id, &focus)
+    let saved = focus::add(&path, &tree_id, &focus)?;
+    console::info(
+        &app,
+        Source::Files,
+        format!("Added focus {} to {path}", focus.id),
+        None,
+    );
+    Ok(saved)
 }
 
 #[tauri::command]
-fn delete_focus(path: String, focus_id: String) -> AppResult<focus::FocusFile> {
-    focus::delete(&path, &focus_id)
+fn delete_focus(app: AppHandle, path: String, focus_id: String) -> AppResult<focus::FocusFile> {
+    let saved = focus::delete(&path, &focus_id)?;
+    console::info(
+        &app,
+        Source::Files,
+        format!("Deleted focus {focus_id} from {path}"),
+        None,
+    );
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -171,11 +254,19 @@ fn read_localisation_file(path: String) -> AppResult<localisation::LocalisationF
 
 #[tauri::command]
 fn write_localisation_file(
+    app: AppHandle,
     path: String,
     language: String,
     entries: Vec<localisation::LocalisationEntry>,
 ) -> AppResult<localisation::LocalisationFile> {
-    localisation::write(&path, &language, &entries)
+    let saved = localisation::write(&path, &language, &entries)?;
+    console::info(
+        &app,
+        Source::Files,
+        format!("Wrote {} localisation entries to {path}", entries.len()),
+        None,
+    );
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -185,7 +276,7 @@ fn read_state_file(path: String) -> AppResult<state::StateFile> {
 
 #[tauri::command]
 fn update_state(
-    cache: State<'_, MapCache>,
+    app: AppHandle,
     path: String,
     state_id: String,
     update: state::StateUpdate,
@@ -195,7 +286,13 @@ fn update_state(
     // Owners, ids and province lists all feed the map. Keeping the cache
     // because the folder has not changed would leave the old colours up and,
     // worse, resolve a click to the owner the state used to have.
-    drop_map_cache(&cache);
+    forget_caches(&app);
+    console::info(
+        &app,
+        Source::Files,
+        format!("Updated state {state_id} in {path}"),
+        None,
+    );
 
     Ok(saved)
 }
@@ -214,10 +311,18 @@ fn read_country_history(path: String) -> AppResult<country_history::CountryHisto
 
 #[tauri::command]
 fn update_country_history(
+    app: AppHandle,
     path: String,
     update: country_history::CountryHistoryUpdate,
 ) -> AppResult<country_history::CountryHistory> {
-    country_history::update(&path, &update)
+    let saved = country_history::update(&path, &update)?;
+    console::info(
+        &app,
+        Source::Files,
+        format!("Updated country setup in {path}"),
+        None,
+    );
+    Ok(saved)
 }
 
 /// The decoded province map, kept between calls because rebuilding it means
@@ -260,7 +365,20 @@ fn with_map<T>(
     };
 
     if slot.as_ref().map(|cached| &cached.key) != Some(&key) {
+        let started = std::time::Instant::now();
         let data = map::load(folder, &key.game_root, replace_paths)?;
+        let summary = data.summary();
+        console::info(
+            app,
+            Source::App,
+            format!(
+                "Loaded map: {} provinces, {} states in {} ms",
+                summary.province_count,
+                summary.state_count,
+                started.elapsed().as_millis()
+            ),
+            None,
+        );
         *slot = Some(CachedMap { key, data });
     }
 
@@ -314,71 +432,14 @@ fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<St
     assets::image_data_url(&path, max_dimension)
 }
 
-/// The sprites a mod plays with, kept between calls because building the index
-/// means parsing every `.gfx` file the game and the mod ship.
-#[derive(Default)]
-struct SpriteCache(Mutex<Option<CachedSprites>>);
-
-struct CachedSprites {
-    key: SpriteKey,
-    index: sprites::SpriteIndex,
-    /// Pictures already decoded, so a tree pointing thirty focuses at the same
-    /// goal icon decodes it once.
-    icons: HashMap<String, sprites::SpriteIcon>,
-}
-
-/// The mod folder and the game folder the index was built from. The game
-/// folder can be repointed in Settings, which changes what a name resolves to.
-#[derive(PartialEq, Eq)]
-struct SpriteKey {
-    folder: String,
-    game_root: String,
-}
-
 /// Resolves `GFX_...` names to pictures the window can draw.
-///
-/// Names are asked for in batches because a focus tree wants its whole set at
-/// once, and because the answer for a name nothing defines is worth caching
-/// too: an editor asks again on every keystroke while one is being typed.
 #[tauri::command]
 fn sprite_icons(
     app: AppHandle,
-    cache: State<'_, SpriteCache>,
     folder_path: String,
     names: Vec<String>,
 ) -> AppResult<Vec<sprites::SpriteIcon>> {
-    let mut slot = cache
-        .0
-        .lock()
-        .map_err(|_| AppError::message("the sprite cache was left in a broken state"))?;
-
-    let key = SpriteKey {
-        folder: folder_path,
-        game_root: settings::load(&app)?.game_root_path,
-    };
-
-    if slot.as_ref().map(|cached| &cached.key) != Some(&key) {
-        let index = sprites::index(&key.folder, &key.game_root);
-        *slot = Some(CachedSprites {
-            key,
-            index,
-            icons: HashMap::new(),
-        });
-    }
-
-    let CachedSprites { key, index, icons } = slot
-        .as_mut()
-        .ok_or_else(|| AppError::message("the sprites failed to load"))?;
-
-    Ok(names
-        .into_iter()
-        .map(|name| {
-            icons
-                .entry(name.clone())
-                .or_insert_with(|| index.icon(&name, &key.folder, &key.game_root))
-                .clone()
-        })
-        .collect())
+    sprites::icons(&app, &folder_path, names)
 }
 
 #[tauri::command]
@@ -401,12 +462,28 @@ fn validate_game_root(path: String) -> AppResult<bool> {
 pub fn run() {
     tauri::Builder::default()
         .manage(MapCache::default())
-        .manage(SpriteCache::default())
+        .manage(sprites::SpriteCache::default())
+        .manage(console::Console::default())
+        .manage(project::Open::default())
+        .manage(mcp::McpState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // A port in use is not worth refusing to open the window over:
+            // the editors work without the server, and Settings shows why.
+            if let Err(error) = mcp::start(app.handle()) {
+                console::error(app.handle(), Source::Mcp, error.to_string(), None);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
+            set_open_project,
+            console_entries,
+            console_clear,
+            mcp_status,
+            mcp_regenerate_token,
             open_mod_project,
             read_mod_project,
             forget_recent_project,

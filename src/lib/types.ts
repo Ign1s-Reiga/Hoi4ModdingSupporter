@@ -47,11 +47,46 @@ export interface RecentProject {
   lastOpened: number;
 }
 
+/** How the app is exposed to MCP clients. */
+export interface McpSettings {
+  enabled: boolean;
+  port: number;
+  /** Bearer token every request must carry. Minted once by the backend. */
+  token: string;
+}
+
 export interface Settings {
   version: number;
   theme: ThemeMode;
   gameRootPath: string;
   recentProjects: RecentProject[];
+  mcp: McpSettings;
+}
+
+export interface McpStatus {
+  enabled: boolean;
+  running: boolean;
+  /** The URL a client connects to, when running. */
+  address: string | null;
+  port: number;
+  token: string;
+  toolCount: number;
+}
+
+export type ConsoleLevel = 'info' | 'warn' | 'error';
+
+/** Who did the thing being logged: the app, a file write, or the MCP server. */
+export type ConsoleSource = 'app' | 'files' | 'mcp';
+
+export interface ConsoleEntry {
+  id: number;
+  /** Milliseconds since the Unix epoch. */
+  atMs: number;
+  level: ConsoleLevel;
+  source: ConsoleSource;
+  message: string;
+  /** Longer text shown when expanded: tool arguments, a result, an error. */
+  detail: string | null;
 }
 
 export interface TextFile {
@@ -99,15 +134,6 @@ export interface FocusFile {
 }
 
 export type FocusUpdate = Omit<Focus, 'treeId' | 'shared' | 'line'>;
-
-/** A `GFX_...` sprite name resolved through `interface/*.gfx` to its art. */
-export interface SpriteIcon {
-  name: string;
-  /** Data URL, or null when the sprite or its texture could not be found. */
-  url: string | null;
-  /** The texture behind it, empty when nothing resolved it. */
-  path: string;
-}
 
 /** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
 export interface SpriteIcon {

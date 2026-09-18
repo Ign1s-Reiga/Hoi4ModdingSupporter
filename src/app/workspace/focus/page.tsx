@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { FileText, FolderTree, ImageOff, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,6 +26,9 @@ import {
 import { isInFolder } from '@/lib/utils';
 
 const FOCUS_FOLDER = 'common/national_focus';
+
+/** Sent by the backend when an MCP client writes a file. */
+const FILE_CHANGED_EVENT = 'project://file-changed';
 
 export default function FocusPage() {
   const { project, scan, setError } = useAppStore();
@@ -85,13 +89,49 @@ export default function FocusPage() {
     }
   }
 
-  function applyFile(loaded: FocusFile, focusId: string | null) {
+  const applyFile = React.useCallback((loaded: FocusFile, focusId: string | null) => {
     setFocusFile(loaded);
     setSelectedId(focusId);
     const focus = loaded.focuses.find((entry) => entry.id === focusId);
     setDraft(focus ? toFocusUpdate(focus) : null);
     setIsDirty(false);
-  }
+  }, []);
+
+  // An assistant editing this file through MCP would otherwise leave the
+  // tree showing what the file used to say. Unsaved edits win: the reload
+  // waits, and a toast says why.
+  const openPath = selectedFile?.fullPath;
+  React.useEffect(() => {
+    if (!openPath) return;
+
+    let cancelled = false;
+    const subscription = listen<{ path: string }>(FILE_CHANGED_EVENT, (event) => {
+      if (cancelled || !samePath(event.payload.path, openPath)) return;
+
+      if (isDirty) {
+        toast.message('This file was changed by an MCP client', {
+          description: 'Your unsaved edits are kept; reopen the file to see the new version.',
+        });
+        return;
+      }
+
+      const request = ++openRequest.current;
+      void api.readFocusFile(openPath).then((loaded) => {
+        if (cancelled || openRequest.current !== request) return;
+        // Keep the selection where it was when the focus still exists.
+        applyFile(
+          loaded,
+          loaded.focuses.some((focus) => focus.id === selectedId) ? selectedId : (loaded.focuses[0]?.id ?? null),
+        );
+        toast.message('Reloaded: changed by an MCP client');
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      void subscription.then((unlisten) => unlisten());
+    };
+  }, [applyFile, openPath, isDirty, selectedId]);
 
   async function selectFocus(id: string) {
     if (id === selectedId) return;
@@ -304,6 +344,11 @@ export default function FocusPage() {
       ) : null}
     </div>
   );
+}
+
+/** Paths from the backend use forward slashes; the scan's may not. */
+function samePath(left: string, right: string): boolean {
+  return left.replaceAll('\\', '/').toLowerCase() === right.replaceAll('\\', '/').toLowerCase();
 }
 
 function FocusForm({

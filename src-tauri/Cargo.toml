@@ -44,6 +44,27 @@ image_dds = { version = "0.7", default-features = false, features = [
   "image",
 ] }
 
+# The MCP server. Only the server side and the streamable HTTP transport;
+# the client transports, OAuth and the rest stay out of the build.
+rmcp = { version = "3", default-features = false, features = [
+  "server",
+  "macros",
+  "transport-streamable-http-server",
+] }
+# Derives the JSON schema each tool advertises for its input. rmcp uses it
+# under the hood; it is declared here because the derive macro is ours.
+schemars = "1"
+# Hosts the MCP tower service on loopback. Tauri already runs a tokio
+# runtime; these add the listener and the HTTP layer on top of it.
+axum = { version = "0.8", default-features = false, features = [
+  "http1",
+  "tokio",
+] }
+tokio = { version = "1", features = ["net", "rt", "sync", "time", "macros"] }
+tokio-util = "0.7"
+# Bearer tokens for the server, minted once and kept in settings.
+uuid = { version = "1", features = ["v4"] }
+
 # Decoding a forty megabyte bitmap and painting thirteen million pixels is
 # unusable in an unoptimised build, so development optimises the dependencies
 # doing that work and lightly optimises this crate.

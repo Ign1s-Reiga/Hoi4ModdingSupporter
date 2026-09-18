@@ -14,12 +14,15 @@ import {
   Map,
   RefreshCw,
   Settings as SettingsIcon,
+  Terminal,
   X,
 } from 'lucide-react';
 
 import { Toaster } from 'sonner';
 
+import { ConsolePanel } from '@/components/console-panel';
 import { Button } from '@/components/ui/button';
+import { useConsoleStore } from '@/lib/console-store';
 import { confirmDiscard } from '@/lib/dialogs';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -72,11 +75,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { settings, project, scan, isScanning, error, unsavedIn, initialise, refreshScan, closeProject, setError } =
     useAppStore();
 
+  const consoleOpen = useConsoleStore((state) => state.isOpen);
+  const unseenErrors = useConsoleStore((state) => state.unseenErrors);
+  const toggleConsole = useConsoleStore((state) => state.toggle);
+  const initialiseConsole = useConsoleStore((state) => state.initialise);
+
   useThemeClass(settings?.theme);
 
   React.useEffect(() => {
     void initialise();
-  }, [initialise]);
+    void initialiseConsole();
+  }, [initialise, initialiseConsole]);
 
   /**
    * Leaving a workspace page unmounts it and takes its draft with it, so the
@@ -168,7 +177,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className='min-h-0 flex-1 overflow-hidden'>{children}</main>
 
+        {consoleOpen ? <ConsolePanel /> : null}
+
         <footer className='flex h-7 shrink-0 items-center gap-3 border-t border-border bg-surface-sunken px-4 text-xs text-muted'>
+          <button
+            type='button'
+            onClick={toggleConsole}
+            aria-pressed={consoleOpen}
+            title={consoleOpen ? 'Hide the console' : 'Show the console'}
+            className={cn(
+              'flex items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-surface-raised hover:text-foreground',
+              consoleOpen && 'text-foreground',
+              unseenErrors > 0 && 'text-danger',
+            )}
+          >
+            <Terminal className='size-3.5' />
+            Console
+            {unseenErrors > 0 ? (
+              <span className='rounded-full bg-danger px-1.5 text-[0.625rem] font-semibold text-white'>
+                {unseenErrors}
+              </span>
+            ) : null}
+          </button>
           {error ? (
             <button
               type='button'

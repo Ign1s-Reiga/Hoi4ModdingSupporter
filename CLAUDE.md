@@ -46,6 +46,28 @@ Localisation is the one deliberate exception: `.yml` files are always written
 as UTF-8 with a BOM, because the game ignores them otherwise. Entry lines that
 did not change are still copied through untouched.
 
+### MCP and the console
+
+`src-tauri/src/mcp.rs` offers the same editors to an assistant as MCP tools,
+over Streamable HTTP on `127.0.0.1:<port>/mcp`. Two layers keep it to its
+owner: rmcp's Host/Origin validation and a bearer token kept in settings.
+Tools work on the project the window has open (`project::Open`, which the
+frontend reports), read inside the mod or the game folder, and write inside
+the mod only.
+
+Every backend write and every tool call goes through `console.rs`, which keeps
+a bounded log and pushes entries to the window as `console://entry` events.
+The console panel in the shell is the audit trail for anything an assistant
+does; log there, not to stdout.
+
+One rule learned from a bug: unit tests must not reach an `AppHandle`. Code
+that does links the windowing stack, whose `TaskDialogIndirect` import needs
+the Common Controls 6 manifest that only the app binary gets from tauri-build,
+so the test executable fails to load with `STATUS_ENTRYPOINT_NOT_FOUND`.
+`rustc-link-arg-tests` cannot help — it never applies to a lib's unit tests.
+Test what such code produces instead: the `*_tool_attr()` metadata, `Scope`,
+the ring buffer.
+
 ## Code Style
 
 - Follow `.editorconfig` (2 spaces, CRLF; 4 spaces in Rust).
@@ -56,9 +78,9 @@ did not change are still copied through untouched.
 
 ## Testing
 
-- `pnpm test:rust` — the parser, editor, focus, localisation, settings and
-  asset tests. Any change to parsing or writing needs a test that proves the
-  round trip, including what the save must _not_ disturb.
+- `pnpm test:rust` — the parser, editor, focus, localisation, settings, asset,
+  sprite, console and MCP tests. Any change to parsing or writing needs a test
+  that proves the round trip, including what the save must _not_ disturb.
 - `pnpm typecheck`, `pnpm lint` and `pnpm fmt` before finishing frontend work.
 - `pnpm desktop` runs the app; `pnpm desktop:build` produces a bundle.
 

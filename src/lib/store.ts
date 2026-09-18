@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 
 import { api, describeError } from '@/lib/ipc';
-import type { ModProject, ScanResult, Settings, ThemeMode } from '@/lib/types';
+import type { McpSettings, ModProject, ScanResult, Settings, ThemeMode } from '@/lib/types';
 
 /** Lets a reload land back in the workspace the user was in. */
 const LAST_PROJECT_KEY = 'hoi4ms.last-project';
@@ -26,6 +26,10 @@ interface AppState {
   initialise: () => Promise<void>;
   setTheme: (theme: ThemeMode) => Promise<void>;
   setGameRoot: (path: string) => Promise<void>;
+  /** Saves the MCP server settings; the backend restarts the server to match. */
+  setMcp: (mcp: McpSettings) => Promise<void>;
+  /** Re-reads settings the backend changed on its own, such as a new MCP token. */
+  reloadSettings: () => Promise<void>;
   openProject: (modFilePath: string) => Promise<ModProject | null>;
   closeProject: () => void;
   refreshScan: () => Promise<void>;
@@ -56,6 +60,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
           const project = await api.readModProject(remembered);
           set({ project });
+          void api.setOpenProject(project);
           void get().refreshScan();
         } catch {
           window.localStorage.removeItem(LAST_PROJECT_KEY);
@@ -86,12 +91,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     await api.saveSettings(updated);
   },
 
+  async setMcp(mcp) {
+    const settings = get().settings;
+    if (!settings) return;
+
+    const updated = { ...settings, mcp };
+    set({ settings: updated });
+    await api.saveSettings(updated);
+  },
+
+  async reloadSettings() {
+    try {
+      set({ settings: await api.loadSettings() });
+    } catch (error) {
+      set({ error: describeError(error) });
+    }
+  },
+
   async openProject(modFilePath) {
     try {
       const project = await api.openModProject(modFilePath);
       window.localStorage.setItem(LAST_PROJECT_KEY, project.modFilePath);
 
       set({ project, scan: null, error: null, unsavedIn: null });
+      // The MCP server edits whatever the window has open; tell it.
+      void api.setOpenProject(project);
       void get().refreshScan();
 
       // The command also refreshes the recent list on disk.
@@ -107,6 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     window.localStorage.removeItem(LAST_PROJECT_KEY);
     // A scan in flight will decline to clear this once its project is gone.
     set({ project: null, scan: null, unsavedIn: null, isScanning: false });
+    void api.setOpenProject(null);
   },
 
   async refreshScan() {

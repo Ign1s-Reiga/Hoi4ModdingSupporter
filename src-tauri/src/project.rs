@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
@@ -83,6 +84,26 @@ pub struct ModProject {
     /// Absolute path of the thumbnail, empty when the mod has none.
     pub image_path: String,
     pub replace_paths: Vec<String>,
+}
+
+/// The project open in the window, as the frontend last reported it.
+///
+/// The backend has no notion of "open" of its own — every command carries the
+/// paths it needs — but the MCP server works on whatever the user is looking
+/// at, so the window tells it. `None` between projects.
+#[derive(Default)]
+pub struct Open(Mutex<Option<ModProject>>);
+
+impl Open {
+    pub fn set(&self, project: Option<ModProject>) {
+        if let Ok(mut slot) = self.0.lock() {
+            *slot = project;
+        }
+    }
+
+    pub fn current(&self) -> Option<ModProject> {
+        self.0.lock().ok().and_then(|slot| slot.clone())
+    }
 }
 
 /// Reads a `.mod` descriptor and resolves the folder it points at.

@@ -11,3 +11,8 @@ export async function confirmDiscard(message: string): Promise<boolean> {
 export async function confirmDelete(message: string): Promise<boolean> {
   return confirm(message, { title: 'Delete', kind: 'warning' });
 }
+
+/** For actions that disconnect something, such as replacing the MCP token. */
+export async function confirmDisconnect(message: string): Promise<boolean> {
+  return confirm(message, { title: 'Disconnect clients', kind: 'warning' });
+}

@@ -5,6 +5,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { Check, FolderSearch, Loader2, Monitor, Moon, Sun, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { McpSettingsSection } from '@/components/mcp-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/form';
 import { Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
@@ -68,6 +69,14 @@ export default function SettingsPage() {
           <PanelHeader title='Hearts of Iron IV folder' subtitle="Needed to browse the game's own art and scripts" />
           {/* Keyed on the saved value so the field resets when it changes. */}
           <GameFolderField key={savedGameRoot} savedPath={savedGameRoot} />
+        </Panel>
+
+        <Panel>
+          <PanelHeader
+            title='MCP server'
+            subtitle='Lets Claude Code or another assistant edit the open mod through this window'
+          />
+          {settings ? <McpSettingsSection saved={settings.mcp} /> : null}
         </Panel>
 
         <Panel>

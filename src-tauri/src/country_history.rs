@@ -14,7 +14,7 @@ use crate::paradox::edit::{apply_edits, BlockEditor};
 use crate::paradox::{self, Block, Items};
 use crate::text_file;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Politics {
     pub ruling_party: String,
@@ -24,7 +24,7 @@ pub struct Politics {
     pub elections_allowed: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Popularity {
     pub ideology: String,
@@ -63,7 +63,7 @@ pub struct CountryHistoryInfo {
 }
 
 /// The editable fields sent back when saving. Empty strings clear a field.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CountryHistoryUpdate {
     pub capital: String,
