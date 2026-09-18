@@ -52,6 +52,23 @@ backend commands are available there.
 | `pnpm fmt:check`                 | Check formatting without writing                   |
 | `node scripts/generate-icon.mjs` | Redraw `assets/app-icon.png`                       |
 
+## Releasing
+
+A version tag is the release. Set the same version in `package.json`,
+`src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, run `pnpm test:rust`
+once so `Cargo.lock` follows, commit as `chore(release): v1.2.3`, then tag and
+push:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```
+
+The [Release workflow](.github/workflows/release.yml) refuses a tag whose
+number differs from the declared version, builds the NSIS installer on Windows
+and attaches it to a **draft** GitHub release with generated notes. Read the
+notes, then publish the release from GitHub. Running the workflow by hand from
+the Actions tab rebuilds the current version's assets.
+
 ## Layout
 
 ```

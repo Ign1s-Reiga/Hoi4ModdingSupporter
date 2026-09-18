@@ -1,0 +1,84 @@
+name: Release
+
+# A version tag is the release. Pushing `v1.2.3` builds the Windows installer
+# and attaches it to a draft GitHub release, so the notes get a look before
+# anything goes public. The manual trigger rebuilds a version's assets from
+# whatever ref it is run on, for a release whose build failed part way.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A release build is never pointless: two tags in quick succession each
+# deserve their installer, so nothing is cancelled here.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows installer
+    # The one platform the app ships for; see `bundle.targets` in tauri.conf.json.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tag is what users see; the three files that declare the version
+      # must agree with it, or the installer would carry a different number
+      # from the release it is attached to.
+      - name: Check the tag matches the declared version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          # Plain text reads: each file keeps its version on one line, and
+          # nothing else has to be installed or stay quiet on stdout.
+          json_version() { sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$1" | head -n 1; }
+          package="$(json_version package.json)"
+          tauri="$(json_version src-tauri/tauri.conf.json)"
+          cargo="$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -n 1)"
+          status=0
+          for declared in "package.json=$package" "tauri.conf.json=$tauri" "Cargo.toml=$cargo"; do
+            if [ "${declared#*=}" != "$tag" ]; then
+              echo "::error::${declared%%=*} declares ${declared#*=} but the tag is v$tag"
+              status=1
+            fi
+          done
+          exit $status
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Runs `tauri build`, which runs `pnpm build` first (beforeBuildCommand)
+      # and bundles the NSIS installer, then creates the release and uploads
+      # it. The notes are GitHub's generated ones: with Conventional Commit
+      # titles on every PR they read as a changelog.
+      - name: Build and publish the draft release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Hoi4 Modding Supporter v__VERSION__
+          releaseDraft: true
+          prerelease: false
+          generateReleaseNotes: true
+          # The same files as workflow artifacts, so a run kept as a draft
+          # still hands over something to test.
+          uploadWorkflowArtifacts: true
