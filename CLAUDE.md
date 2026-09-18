@@ -102,6 +102,10 @@ Linting is [oxlint](https://oxc.rs) and formatting is oxfmt, configured in
 - Branch names are `<type>/<hyphenated-abstract>`, e.g. `feat/focus-canvas`.
 - One commit per logical change.
 - Commits are GPG-signed; never bypass signing to get a commit through.
+- A `v1.2.3` tag is a release: `.github/workflows/release.yml` checks the tag
+  against the version in `package.json`, `tauri.conf.json` and `Cargo.toml`,
+  builds the installer and opens a draft GitHub release. Bump all three before
+  tagging, in a `chore(release): v1.2.3` commit.
 
 ## Want to do
 
