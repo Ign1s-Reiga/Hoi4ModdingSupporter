@@ -9,6 +9,22 @@ import type { SpriteIcon } from '@/lib/types';
  * backend has not answered for yet. */
 export type SpriteMap = ReadonlyMap<string, SpriteIcon>;
 
+/**
+ * The sprite a focus's `icon` field points at: the value itself, or the first
+ * `GFX_` name inside it when the icon is scripted (`icon = { GFX_a = { … } }`
+ * picks one by trigger, and the backend hands that body over as the value).
+ */
+export function spriteName(icon: string): string {
+  const trimmed = icon.trim();
+  if (!/[{=\s]/.test(trimmed)) return trimmed;
+  return /GFX_[A-Za-z0-9_]+/.exec(trimmed)?.[0] ?? '';
+}
+
+/** Whether an icon value is a scripted block rather than a sprite name. */
+export function isScriptedIcon(icon: string): boolean {
+  return /[{=\s]/.test(icon.trim());
+}
+
 const EMPTY: ReadonlyMap<string, SpriteIcon> = new Map();
 
 /**

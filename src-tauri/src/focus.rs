@@ -71,6 +71,8 @@ pub struct FocusFile {
 #[serde(rename_all = "camelCase")]
 pub struct FocusUpdate {
     pub id: String,
+    /// A sprite name, or the body of an `icon = { ... }` block when the icon
+    /// is picked by trigger. Written back as whichever shape it has.
     pub icon: String,
     pub x: String,
     pub y: String,
@@ -172,7 +174,9 @@ fn read_focus(source: &str, block: &Block, tree_id: &str, shared: bool, start: u
 
     Focus {
         id: block.scalar("id").unwrap_or_default(),
-        icon: block.scalar("icon").unwrap_or_default(),
+        // Vanilla picks some icons by trigger: `icon = { GFX_a = { ... } }`.
+        // Reading that as an empty name would have the next save clear it.
+        icon: read_block_field("icon"),
         x: block.scalar("x").unwrap_or_default(),
         y: block.scalar("y").unwrap_or_default(),
         cost: block.scalar("cost").unwrap_or_default(),
@@ -229,13 +233,18 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
 
     for (key, value) in [
         ("id", &update.id),
-        ("icon", &update.icon),
         ("x", &update.x),
         ("y", &update.y),
         ("cost", &update.cost),
         ("relative_position_id", &update.relative_position_id),
     ] {
         editor.set_scalar(key, value);
+    }
+
+    if is_scripted_icon(&update.icon) {
+        editor.set_block("icon", &update.icon);
+    } else {
+        editor.set_scalar("icon", &update.icon);
     }
 
     for (key, value) in BLOCK_FIELDS.iter().zip([
@@ -380,6 +389,13 @@ fn set_reference_groups(editor: &mut BlockEditor<'_>, key: &str, groups: &[Vec<S
     }
 }
 
+/// Whether an icon value is the body of an `icon = { ... }` block rather
+/// than a sprite name. A name is one word; a block body has assignments.
+fn is_scripted_icon(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.contains('{') || trimmed.contains('=') || trimmed.contains(char::is_whitespace)
+}
+
 /// Trims the ids a form sends and drops the blanks.
 fn normalise_ids(ids: &[String]) -> Vec<String> {
     ids.iter()
@@ -406,7 +422,15 @@ fn render_focus_body(focus: &FocusUpdate, indent: &str, newline: &str) -> String
         ("relative_position_id", &focus.relative_position_id),
         ("cost", &focus.cost),
     ] {
-        if !value.trim().is_empty() {
+        if value.trim().is_empty() {
+            continue;
+        }
+        if key == "icon" && is_scripted_icon(value) {
+            lines.push(format!(
+                "{indent}icon = {}",
+                format_block(value, indent, newline)
+            ));
+        } else {
             lines.push(format!("{indent}{key} = {}", value.trim()));
         }
     }
@@ -625,6 +649,101 @@ mod tests {
             bytes.windows(2).any(|pair| pair == [0xE9, b'_']),
             "the Windows-1252 byte was re-encoded"
         );
+    }
+
+    const SCRIPTED_ICON: &str = "focus_tree = {\n\tid = t\n\tfocus = {\n\t\tid = dam\n\t\ticon = {\n\t\t\tGFX_focus_a = {\n\t\t\t\thas_government = democratic\n\t\t\t}\n\t\t\tGFX_focus_b = { always = yes }\n\t\t}\n\t\tx = 1\n\t\ty = 1\n\t\tcost = 10\n\t}\n}\n";
+
+    #[test]
+    fn a_scripted_icon_reads_as_its_body() {
+        let path = write_temp("scripted-read.txt", SCRIPTED_ICON);
+        let file = read(&path).expect("reads");
+
+        let icon = &file.focuses[0].icon;
+        assert!(icon.starts_with("GFX_focus_a = {"), "{icon}");
+        assert!(icon.contains("GFX_focus_b = { always = yes }"), "{icon}");
+    }
+
+    #[test]
+    fn saving_another_field_leaves_a_scripted_icon_byte_for_byte() {
+        // This used to read the icon as empty and then delete the whole block
+        // as a cleared field, on a save that never touched it.
+        let path = write_temp("scripted-keep.txt", SCRIPTED_ICON);
+        let before = read(&path).expect("reads");
+        let mut change = as_update(&before.focuses[0]);
+        change.cost = "12".into();
+
+        update(&path, "dam", &change).expect("updates");
+        let written = std::fs::read_to_string(&path).expect("read back");
+
+        assert_eq!(written, SCRIPTED_ICON.replace("cost = 10", "cost = 12"));
+    }
+
+    #[test]
+    fn typing_a_sprite_name_replaces_a_scripted_icon() {
+        let path = write_temp("scripted-replace.txt", SCRIPTED_ICON);
+        let before = read(&path).expect("reads");
+        let mut change = as_update(&before.focuses[0]);
+        change.icon = "GFX_focus_plain".into();
+
+        let file = update(&path, "dam", &change).expect("updates");
+        let written = std::fs::read_to_string(&path).expect("read back");
+
+        assert_eq!(file.focuses[0].icon, "GFX_focus_plain");
+        assert!(
+            written.contains("\t\ticon = GFX_focus_plain\n"),
+            "{written}"
+        );
+        assert!(!written.contains("GFX_focus_a"), "{written}");
+    }
+
+    #[test]
+    fn a_new_focus_can_carry_a_scripted_icon() {
+        let path = write_temp("scripted-add.txt", TREE);
+        let focus = FocusUpdate {
+            id: "gamma".into(),
+            icon: "GFX_focus_a = { always = yes }\nGFX_focus_b = { always = no }".into(),
+            x: "3".into(),
+            y: "0".into(),
+            cost: "10".into(),
+            ..Default::default()
+        };
+
+        let file = add(&path, "test_tree", &focus).expect("adds");
+        let gamma = file
+            .focuses
+            .iter()
+            .find(|f| f.id == "gamma")
+            .expect("gamma");
+
+        assert!(
+            gamma.icon.contains("GFX_focus_a = { always = yes }"),
+            "{}",
+            gamma.icon
+        );
+        assert!(
+            gamma.icon.contains("GFX_focus_b = { always = no }"),
+            "{}",
+            gamma.icon
+        );
+    }
+
+    /// The editable fields of a focus as the window would send them back.
+    fn as_update(focus: &Focus) -> FocusUpdate {
+        FocusUpdate {
+            id: focus.id.clone(),
+            icon: focus.icon.clone(),
+            x: focus.x.clone(),
+            y: focus.y.clone(),
+            cost: focus.cost.clone(),
+            relative_position_id: focus.relative_position_id.clone(),
+            prerequisites: focus.prerequisites.clone(),
+            mutually_exclusive: focus.mutually_exclusive.clone(),
+            available: focus.available.clone(),
+            bypass: focus.bypass.clone(),
+            allow_branch: focus.allow_branch.clone(),
+            completion_reward: focus.completion_reward.clone(),
+            ai_will_do: focus.ai_will_do.clone(),
+        }
     }
 
     #[test]
