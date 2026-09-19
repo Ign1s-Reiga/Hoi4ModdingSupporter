@@ -5,17 +5,19 @@
 //! the author formatting, comments and ordering untouched.
 
 use super::lexer::{tokenize, unquote, Token, TokenKind};
-use super::Span;
+use super::{line_of, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     pub message: String,
     pub offset: usize,
+    /// One-based; what a person reads off the editor gutter.
+    pub line: usize,
 }
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{} (at byte {})", self.message, self.offset)
+        write!(formatter, "{} (line {})", self.message, self.line)
     }
 }
 
@@ -167,7 +169,10 @@ pub fn parse(source: &str) -> Result<Document, ParseError> {
         source_len: source.len(),
         unclosed_blocks: 0,
     };
-    let items = parser.parse_items(false)?;
+    let items = parser.parse_items(false).map_err(|mut error| {
+        error.line = line_of(source, error.offset);
+        error
+    })?;
     Ok(Document {
         items,
         unclosed_blocks: parser.unclosed_blocks,
@@ -255,6 +260,7 @@ impl Parser {
             TokenKind::Operator => Err(ParseError {
                 message: format!("unexpected operator `{}`", token.raw),
                 offset: token.span.start,
+                line: 0,
             }),
             TokenKind::CloseBrace => unreachable!("close brace is handled by parse_items"),
         }
@@ -264,6 +270,7 @@ impl Parser {
         let token = self.advance().ok_or_else(|| ParseError {
             message: "expected a value but reached end of file".into(),
             offset: self.source_len,
+            line: 0,
         })?;
 
         match token.kind {
@@ -272,6 +279,7 @@ impl Parser {
             TokenKind::CloseBrace | TokenKind::Operator => Err(ParseError {
                 message: format!("expected a value but found `{}`", token.raw),
                 offset: token.span.start,
+                line: 0,
             }),
         }
     }

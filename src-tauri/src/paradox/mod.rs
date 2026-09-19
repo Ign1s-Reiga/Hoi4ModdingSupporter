@@ -120,6 +120,16 @@ focus_tree = {
     }
 
     #[test]
+    fn reports_errors_by_line() {
+        // The code editor shows this next to the text, where a byte offset
+        // would mean nothing to the person typing.
+        let error = parse("focus = {\n    id = a\n    cost = = 10\n}").expect_err("rejects");
+
+        assert_eq!(error.line, 3);
+        assert_eq!(error.to_string(), "expected a value but found `=` (line 3)");
+    }
+
+    #[test]
     fn reads_bare_lists() {
         let document = parse("tags = { \"Alternative History\" Gameplay }").expect("parses");
         let block = document.block("tags").expect("tags block");
