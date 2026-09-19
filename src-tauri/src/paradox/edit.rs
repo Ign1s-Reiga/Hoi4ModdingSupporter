@@ -678,69 +678,34 @@ mod tests {
         });
 
         assert!(!result.contains("cost"), "{result}");
-        assert!(
-            result.contains(
-                "
-		icon = GFX_x
-	}"
-            ),
-            "{result}"
-        );
+        assert!(result.contains("\n\t\ticon = GFX_x\n\t}"), "{result}");
         assert!(result.contains("x = 1"));
     }
 
     #[test]
     fn emptying_a_block_and_refilling_it_leaves_no_leftovers() {
-        let result = edit_focus(
-            "focus = { cost = 10 }
-",
-            |editor| {
-                editor.set_scalar("cost", "");
-                editor.set_scalar("id", "fresh");
-            },
-        );
+        let result = edit_focus("focus = { cost = 10 }\n", |editor| {
+            editor.set_scalar("cost", "");
+            editor.set_scalar("id", "fresh");
+        });
 
-        assert_eq!(
-            result,
-            "focus = {
-	id = fresh
-}
-"
-        );
+        assert_eq!(result, "focus = {\n\tid = fresh\n}\n");
     }
 
     #[test]
     fn a_comment_after_the_removed_field_still_anchors_the_insertion() {
-        let source = "focus = {
-	id = a
-	cost = 10
-	# tail note
-}
-";
+        let source = "focus = {\n\tid = a\n\tcost = 10\n\t# tail note\n}\n";
         let result = edit_focus(source, |editor| {
             editor.set_scalar("cost", "");
             editor.set_scalar("y", "2");
         });
 
-        assert_eq!(
-            result,
-            "focus = {
-	id = a
-	# tail note
-	y = 2
-}
-"
-        );
+        assert_eq!(result, "focus = {\n\tid = a\n\t# tail note\n\ty = 2\n}\n");
     }
 
     #[test]
     fn extra_repeated_values_removed_at_the_end_do_not_swallow_additions() {
-        let source = "state = {
-	id = 1
-	add_core_of = A
-	add_core_of = B
-}
-";
+        let source = "state = {\n\tid = 1\n\tadd_core_of = A\n\tadd_core_of = B\n}\n";
         let document = parse(source).expect("parses");
         let block = document.block("state").expect("block");
         let mut editor = BlockEditor::new(source, block);
@@ -750,12 +715,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "state = {
-	id = 1
-	add_core_of = A
-	owner = A
-}
-"
+            "state = {\n\tid = 1\n\tadd_core_of = A\n\towner = A\n}\n"
         );
     }
 
