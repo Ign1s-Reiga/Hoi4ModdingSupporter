@@ -703,7 +703,7 @@ impl Server {
     }
 
     #[tool(
-        description = "A national focus file: its focus trees and every focus with id, icon, position, cost, prerequisites, mutual exclusions and script blocks, plus the line each is on.",
+        description = "A national focus file: its focus trees and every focus with id, icon, position, cost, prerequisites, mutual exclusions and script blocks, plus the line each is on and the file's full text as `source`.",
         annotations(read_only_hint = true)
     )]
     async fn read_focus_file(

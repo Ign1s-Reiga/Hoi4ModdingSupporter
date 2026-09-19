@@ -2,10 +2,24 @@
 
 import * as React from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { FileText, FolderTree, ImageOff, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import {
+  Code2,
+  Columns2,
+  FileText,
+  FolderTree,
+  ImageOff,
+  LayoutTemplate,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FocusCanvas } from '@/components/focus-canvas';
+import { ScriptEditor, type Reveal } from '@/components/script-editor';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { CodeInput, Field, Label, Textarea } from '@/components/ui/form';
@@ -18,18 +32,68 @@ import { useUnsavedIn } from '@/lib/use-unsaved';
 import {
   emptyFocusUpdate,
   toFocusUpdate,
+  type Encoding,
   type FocusFile,
+  type FocusTree,
   type FocusUpdate,
   type ProjectFile,
   type SpriteIcon,
 } from '@/lib/types';
-import { isInFolder } from '@/lib/utils';
+import { cn, isInFolder } from '@/lib/utils';
 
 const FOCUS_FOLDER = 'common/national_focus';
 
 /** Sent by the backend when an MCP client writes a file. */
 const FILE_CHANGED_EVENT = 'project://file-changed';
 
+/** How the tree panel is laid out. Remembered per machine. */
+type View = 'visual' | 'split' | 'code';
+const VIEW_KEY = 'hoi4ms.focus-view';
+const VIEWS: Array<{ value: View; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { value: 'visual', label: 'Visual', icon: LayoutTemplate },
+  { value: 'split', label: 'Split', icon: Columns2 },
+  { value: 'code', label: 'Code', icon: Code2 },
+];
+
+/** How long the buffer sits still before it is parsed again. */
+const PARSE_DELAY_MS = 250;
+
+type Newline = '\n' | '\r\n';
+
+/**
+ * The buffer is kept with `\n` line breaks, which is the only kind the code
+ * editor produces; the file's own kind is remembered and put back on write.
+ * Without this, opening a CRLF file marked it changed on the spot, and saving
+ * would have rewritten every line ending.
+ */
+function toBuffer(text: string): string {
+  return text.replaceAll('\r\n', '\n');
+}
+
+function newlineOf(text: string): Newline {
+  return text.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function storedView(): View {
+  try {
+    const stored = window.localStorage.getItem(VIEW_KEY);
+    return VIEWS.some((view) => view.value === stored) ? (stored as View) : 'visual';
+  } catch {
+    return 'visual';
+  }
+}
+
+/**
+ * The focus editor.
+ *
+ * The file's text is the document. The tree, the focus list and the form are
+ * all read out of it, and every change — a field applied from the form, a
+ * focus added or deleted, a key typed into the code view — goes back into it
+ * through the backend's surgical editor. When the code view is hidden and
+ * the text has no edits of its own, the form's Save writes the file at once,
+ * as a form should; otherwise the form only applies, and the file is written
+ * on request, the way a text editor works.
+ */
 export default function FocusPage() {
   const { project, scan, setError } = useAppStore();
 
@@ -46,12 +110,29 @@ export default function FocusPage() {
   // first read pass while the third is still in flight.
   const openRequest = React.useRef(0);
 
+  const [view, setView] = React.useState<View>(storedView);
+  // The document: what the code view shows and every edit goes through.
+  const [source, setSource] = React.useState('');
+  // What the file on disk last held, so the two can be compared.
+  const [savedSource, setSavedSource] = React.useState('');
+  const [encoding, setEncoding] = React.useState<Encoding>('utf8');
+  const [hasBom, setHasBom] = React.useState(false);
+  const [newline, setNewline] = React.useState<Newline>('\n');
+  const [parseError, setParseError] = React.useState<string | null>(null);
+  const [reveal, setReveal] = React.useState<Reveal | undefined>(undefined);
+
   const files = React.useMemo(
     () => (scan?.files ?? []).filter((file) => isInFolder(file.relativePath, FOCUS_FOLDER) && file.extension === 'txt'),
     [scan],
   );
 
-  useUnsavedIn('focus editor', isDirty);
+  const sourceDirty = source !== savedSource;
+  // With the code hidden and the text untouched, the form's Save writes the
+  // file, the way it always has. Once the text has edits of its own the form
+  // can only apply: writing would take those along uninvited.
+  const formCommits = view === 'visual' && !sourceDirty;
+
+  useUnsavedIn('focus editor', isDirty || sourceDirty);
 
   const focuses = React.useMemo(() => focusFile?.focuses ?? [], [focusFile]);
   const selected = focuses.find((focus) => focus.id === selectedId) ?? null;
@@ -65,8 +146,49 @@ export default function FocusPage() {
   const iconNames = React.useMemo(() => shown.map((focus) => spriteName(focus.icon)), [shown]);
   const icons = useSpriteIcons(project?.folderPath, iconNames);
 
+  function chooseView(next: View) {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // A private window forgets; the choice still holds for this session.
+    }
+  }
+
+  /**
+   * Takes on a file as it was just read from disk: its text is what is
+   * saved, and how it was written is how it will be written again. A file
+   * handed back by a buffer operation goes through `applyFile` alone,
+   * since its text describes the encoding it was asked for, not what the
+   * disk ended up with.
+   */
+  const adoptFile = React.useCallback((loaded: FocusFile) => {
+    setSavedSource(toBuffer(loaded.source));
+    setEncoding(loaded.encoding);
+    setHasBom(loaded.hasBom);
+    setNewline(newlineOf(loaded.source));
+  }, []);
+
+  /** Shows a file the backend handed back, selecting `focusId`. */
+  const applyFile = React.useCallback((loaded: FocusFile, focusId: string | null) => {
+    const text = toBuffer(loaded.source);
+    setFocusFile({ ...loaded, source: text });
+    setSource(text);
+    setParseError(null);
+    setSelectedId(focusId);
+    const focus = loaded.focuses.find((entry) => entry.id === focusId);
+    setDraft(focus ? toFocusUpdate(focus) : null);
+    setIsDirty(false);
+  }, []);
+
+  async function confirmLeavingEdits(): Promise<boolean> {
+    if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return false;
+    if (sourceDirty && !(await confirmDiscard('Discard unsaved changes to the file text?'))) return false;
+    return true;
+  }
+
   async function openFile(file: ProjectFile) {
-    if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return;
+    if (!(await confirmLeavingEdits())) return;
 
     // A slower read must not replace the focuses of the file opened after it.
     const request = ++openRequest.current;
@@ -76,6 +198,7 @@ export default function FocusPage() {
       const loaded = await api.readFocusFile(file.fullPath);
       if (openRequest.current !== request) return;
 
+      adoptFile(loaded);
       applyFile(loaded, loaded.focuses[0]?.id ?? null);
     } catch (error) {
       if (openRequest.current !== request) return;
@@ -89,18 +212,55 @@ export default function FocusPage() {
     }
   }
 
-  const applyFile = React.useCallback((loaded: FocusFile, focusId: string | null) => {
-    setFocusFile(loaded);
-    setSelectedId(focusId);
-    const focus = loaded.focuses.find((entry) => entry.id === focusId);
-    setDraft(focus ? toFocusUpdate(focus) : null);
-    setIsDirty(false);
-  }, []);
+  // What the parse callback below needs to know at the moment it lands, not
+  // at the moment the timer was set.
+  const latest = React.useRef({ isDirty, selectedId });
+  React.useEffect(() => {
+    latest.current = { isDirty, selectedId };
+  });
+
+  // The tree follows the code view. The buffer is parsed once it sits still,
+  // and a text that does not parse keeps the last tree up with the error
+  // shown beside the code, so a half-typed block does not blank the canvas.
+  const openPath = selectedFile?.fullPath;
+  React.useEffect(() => {
+    if (!openPath || !focusFile || source === focusFile.source) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void api
+        .parseFocusSource(openPath, source, hasBom, encoding)
+        .then((parsed) => {
+          if (cancelled) return;
+
+          const current = latest.current.selectedId;
+          const stillThere = current !== null && parsed.focuses.some((focus) => focus.id === current);
+          const nextId = stillThere ? current : (parsed.focuses[0]?.id ?? null);
+
+          setFocusFile(parsed);
+          setParseError(null);
+          setSelectedId(nextId);
+          // A form the user is mid-way through editing keeps its draft; an
+          // untouched one follows the new text.
+          if (!latest.current.isDirty) {
+            const focus = parsed.focuses.find((entry) => entry.id === nextId);
+            setDraft(focus ? toFocusUpdate(focus) : null);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setParseError(describeError(error));
+        });
+    }, PARSE_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [encoding, focusFile, hasBom, openPath, source]);
 
   // An assistant editing this file through MCP would otherwise leave the
   // tree showing what the file used to say. Unsaved edits win: the reload
   // waits, and a toast says why.
-  const openPath = selectedFile?.fullPath;
   React.useEffect(() => {
     if (!openPath) return;
 
@@ -108,7 +268,7 @@ export default function FocusPage() {
     const subscription = listen<{ path: string }>(FILE_CHANGED_EVENT, (event) => {
       if (cancelled || !samePath(event.payload.path, openPath)) return;
 
-      if (isDirty) {
+      if (isDirty || sourceDirty) {
         toast.message('This file was changed by an MCP client', {
           description: 'Your unsaved edits are kept; reopen the file to see the new version.',
         });
@@ -118,6 +278,7 @@ export default function FocusPage() {
       const request = ++openRequest.current;
       void api.readFocusFile(openPath).then((loaded) => {
         if (cancelled || openRequest.current !== request) return;
+        adoptFile(loaded);
         // Keep the selection where it was when the focus still exists.
         applyFile(
           loaded,
@@ -131,7 +292,7 @@ export default function FocusPage() {
       cancelled = true;
       void subscription.then((unlisten) => unlisten());
     };
-  }, [applyFile, openPath, isDirty, selectedId]);
+  }, [adoptFile, applyFile, openPath, isDirty, sourceDirty, selectedId]);
 
   async function selectFocus(id: string) {
     if (id === selectedId) return;
@@ -141,6 +302,8 @@ export default function FocusPage() {
     setSelectedId(id);
     setDraft(focus ? toFocusUpdate(focus) : null);
     setIsDirty(false);
+    // The code view jumps to the focus, so the two stay in step.
+    if (focus) setReveal((current) => ({ line: focus.line, key: (current?.key ?? 0) + 1 }));
   }
 
   function patch(changes: Partial<FocusUpdate>) {
@@ -163,15 +326,27 @@ export default function FocusPage() {
     patch({ x: String(x), y: String(y) });
   }
 
-  async function save() {
-    if (!selectedFile || !draft || !selectedId) return;
+  /** Writes `text` as the file, reporting an encoding the text no longer fits. */
+  async function writeFile(text: string) {
+    if (!selectedFile) return;
+
+    const used = await api.writeTextFile(selectedFile.fullPath, text.replaceAll('\n', newline), encoding, hasBom);
+    setSavedSource(text);
+    if (used !== encoding) {
+      // The text outgrew Windows-1252, so the backend fell back to UTF-8.
+      setEncoding(used);
+      toast.warning(`Saved ${selectedFile.name} as UTF-8 - the new text does not fit Windows-1252`);
+    }
+  }
+
+  /** The header's Save file: the whole buffer, edits from every source included. */
+  async function saveFile() {
+    if (!selectedFile || !sourceDirty) return;
 
     setIsSaving(true);
     try {
-      const updated = await api.updateFocus(selectedFile.fullPath, selectedId, draft);
-      // The id itself may have changed, so follow the draft rather than the old id.
-      applyFile(updated, draft.id || selectedId);
-      toast.success(`Saved ${draft.id || selectedId}`);
+      await writeFile(source);
+      toast.success(`Saved ${selectedFile.name}`);
     } catch (error) {
       const message = describeError(error);
       setError(message);
@@ -181,21 +356,68 @@ export default function FocusPage() {
     }
   }
 
+  /** Runs a buffer operation and, when the form commits, writes the result. */
+  async function commit(
+    operation: () => Promise<FocusFile>,
+    focusId: (updated: FocusFile) => string | null,
+    done: string,
+  ) {
+    if (!selectedFile) return;
+
+    setIsSaving(true);
+    try {
+      const updated = await operation();
+      const persisted = formCommits;
+      if (persisted) await writeFile(updated.source);
+      applyFile(updated, focusId(updated));
+      toast.success(persisted ? `Saved ${done}` : `Applied ${done}`);
+    } catch (error) {
+      const message = describeError(error);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function save() {
+    if (!selectedFile || !draft || !selectedId) return;
+    const path = selectedFile.fullPath;
+    const id = selectedId;
+    const change = draft;
+
+    await commit(
+      () => api.updateFocusSource(path, source, hasBom, encoding, id, change),
+      // The id itself may have changed, so follow the draft rather than the old id.
+      () => change.id || id,
+      change.id || id,
+    );
+  }
+
   async function remove() {
     if (!selectedFile || !selectedId) return;
     if (!(await confirmDelete(`Delete focus "${selectedId}" from ${selectedFile.name}?`))) {
       return;
     }
+    const path = selectedFile.fullPath;
+    const id = selectedId;
 
-    try {
-      const updated = await api.deleteFocus(selectedFile.fullPath, selectedId);
-      applyFile(updated, updated.focuses[0]?.id ?? null);
-      toast.success(`Deleted ${selectedId}`);
-    } catch (error) {
-      const message = describeError(error);
-      setError(message);
-      toast.error(message);
-    }
+    await commit(
+      () => api.deleteFocusSource(path, source, hasBom, encoding, id),
+      (updated) => updated.focuses[0]?.id ?? null,
+      id,
+    );
+  }
+
+  async function addFocus(treeId: string, focus: FocusUpdate) {
+    if (!selectedFile) return;
+    const path = selectedFile.fullPath;
+
+    await commit(
+      () => api.addFocusSource(path, source, hasBom, encoding, treeId, focus),
+      () => focus.id,
+      focus.id,
+    );
   }
 
   return (
@@ -272,6 +494,39 @@ export default function FocusPage() {
               ? focusFile.trees.map((tree) => tree.id || '(unnamed tree)').join(', ')
               : 'Open a file to see its tree'
           }
+          actions={
+            <>
+              {sourceDirty ? <Badge tone='accent'>Unsaved file</Badge> : null}
+              {sourceDirty ? (
+                <Button variant='primary' size='sm' onClick={() => void saveFile()} disabled={isSaving} title='Ctrl+S'>
+                  {isSaving ? <Loader2 className='animate-spin' /> : <Save />}
+                  Save file
+                </Button>
+              ) : null}
+              <div role='radiogroup' aria-label='Layout' className='flex rounded-md border border-border p-0.5'>
+                {VIEWS.map((option) => {
+                  const Icon = option.icon;
+                  const active = option.value === view;
+                  return (
+                    <button
+                      key={option.value}
+                      type='button'
+                      role='radio'
+                      aria-checked={active}
+                      title={option.label}
+                      onClick={() => chooseView(option.value)}
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded transition-colors',
+                        active ? 'bg-surface-sunken text-foreground' : 'text-muted hover:text-foreground',
+                      )}
+                    >
+                      <Icon className='size-4' />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          }
         />
         <PanelBody className='overflow-hidden p-0'>
           {isLoading ? (
@@ -279,20 +534,49 @@ export default function FocusPage() {
               <Loader2 className='size-4 animate-spin' />
               Reading focuses…
             </div>
-          ) : focuses.length === 0 ? (
+          ) : !focusFile || !selectedFile ? (
             <EmptyState
               icon={<FolderTree />}
               title='No focus tree loaded'
               description='Pick a file from common/national_focus to see its focuses laid out on the game grid.'
             />
           ) : (
-            <FocusCanvas
-              focuses={shown}
-              icons={icons}
-              selectedId={selectedId}
-              onSelect={(id) => void selectFocus(id)}
-              onMove={(id, x, y) => void moveFocus(id, x, y)}
-            />
+            <div className={cn('grid h-full', view === 'split' ? 'grid-cols-2' : 'grid-cols-1')}>
+              {view !== 'visual' ? (
+                <div className={cn('flex min-h-0 flex-col', view === 'split' && 'border-r border-border')}>
+                  {parseError ? (
+                    <div className='flex shrink-0 items-start gap-2 border-b border-border bg-danger-soft px-3 py-1.5 text-xs text-danger'>
+                      <TriangleAlert className='mt-0.5 size-3.5 shrink-0' />
+                      <span className='min-w-0 break-words'>{parseError}</span>
+                    </div>
+                  ) : null}
+                  <ScriptEditor
+                    value={source}
+                    onChange={setSource}
+                    onSave={() => void saveFile()}
+                    reveal={reveal}
+                    className='min-h-0 flex-1 overflow-hidden'
+                  />
+                </div>
+              ) : null}
+              {view !== 'code' ? (
+                focuses.length === 0 ? (
+                  <EmptyState
+                    icon={<FolderTree />}
+                    title='No focuses in this file'
+                    description='Add one with the + button, or write one in the code view.'
+                  />
+                ) : (
+                  <FocusCanvas
+                    focuses={shown}
+                    icons={icons}
+                    selectedId={selectedId}
+                    onSelect={(id) => void selectFocus(id)}
+                    onMove={(id, x, y) => void moveFocus(id, x, y)}
+                  />
+                )
+              ) : null}
+            </div>
           )}
         </PanelBody>
       </Panel>
@@ -308,9 +592,19 @@ export default function FocusPage() {
                 <Button variant='ghost' size='icon-sm' title='Delete focus' onClick={() => void remove()}>
                   <Trash2 />
                 </Button>
-                <Button variant='primary' size='sm' onClick={() => void save()} disabled={!isDirty || isSaving}>
+                <Button
+                  variant='primary'
+                  size='sm'
+                  onClick={() => void save()}
+                  disabled={!isDirty || isSaving}
+                  title={
+                    formCommits
+                      ? 'Write this focus to the file'
+                      : 'Put this focus into the file text; Save file writes it'
+                  }
+                >
                   {isSaving ? <Loader2 className='animate-spin' /> : <Save />}
-                  Save
+                  {formCommits ? 'Save' : 'Apply'}
                 </Button>
               </>
             ) : null
@@ -333,12 +627,11 @@ export default function FocusPage() {
       {/* Mounted only while open so its fields start empty every time. */}
       {isAdding && focusFile ? (
         <AddFocusDialog
-          file={focusFile}
+          trees={focusFile.trees}
           onOpenChange={setIsAdding}
-          onCreated={(updated, id) => applyFile(updated, id)}
-          onError={(message) => {
-            setError(message);
-            toast.error(message);
+          onAdd={async (treeId, focus) => {
+            await addFocus(treeId, focus);
+            setIsAdding(false);
           }}
         />
       ) : null}
@@ -545,17 +838,16 @@ function BlockField({
 
 function AddFocusDialog({
   onOpenChange,
-  file,
-  onCreated,
-  onError,
+  trees,
+  onAdd,
 }: {
   onOpenChange: (open: boolean) => void;
-  file: FocusFile;
-  onCreated: (updated: FocusFile, focusId: string) => void;
-  onError: (message: string) => void;
+  trees: FocusTree[];
+  /** Adds the focus; the page decides whether that also writes the file. */
+  onAdd: (treeId: string, focus: FocusUpdate) => Promise<void>;
 }) {
   const [id, setId] = React.useState('');
-  const [treeId, setTreeId] = React.useState(file.trees[0]?.id ?? '');
+  const [treeId, setTreeId] = React.useState(trees[0]?.id ?? '');
   const [isSaving, setIsSaving] = React.useState(false);
 
   async function create() {
@@ -563,19 +855,14 @@ function AddFocusDialog({
 
     setIsSaving(true);
     try {
-      const focus: FocusUpdate = {
+      await onAdd(treeId, {
         ...emptyFocusUpdate(),
         id: id.trim(),
         icon: 'GFX_goal_unknown',
         x: '0',
         y: '0',
         cost: '10',
-      };
-      const updated = await api.addFocus(file.path, treeId, focus);
-      onCreated(updated, focus.id);
-      onOpenChange(false);
-    } catch (error) {
-      onError(describeError(error));
+      });
     } finally {
       setIsSaving(false);
     }
@@ -596,7 +883,7 @@ function AddFocusDialog({
               onChange={(event) => setId(event.target.value)}
             />
           </Field>
-          {file.trees.length > 1 ? (
+          {trees.length > 1 ? (
             <Field label='Focus tree'>
               <CodeInput value={treeId} onChange={(event) => setTreeId(event.target.value)} />
             </Field>

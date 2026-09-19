@@ -131,6 +131,8 @@ export interface FocusFile {
   focuses: Focus[];
   hasBom: boolean;
   encoding: Encoding;
+  /** The text the focuses were read from; the code view edits it directly. */
+  source: string;
 }
 
 export type FocusUpdate = Omit<Focus, 'treeId' | 'shared' | 'line'>;

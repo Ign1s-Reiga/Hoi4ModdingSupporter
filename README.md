@@ -16,7 +16,9 @@ static export served inside the Tauri window.
 - **National focus editor** — focuses laid out on the game grid; drag a node to
   set its `x`/`y`, edit prerequisites and rewards in a form, add or delete
   focuses. Saving rewrites only the value that changed, so comments and
-  formatting survive.
+  formatting survive. A code view shows the file's text beside the tree,
+  like a Markdown editor's split view: typing re-parses the tree, and
+  fields applied from the form land in the text.
 - **Localisation editor** — edit keys, versions and text in a table. Comments
   and untouched lines are preserved and every save writes the UTF-8 BOM the
   game requires.
