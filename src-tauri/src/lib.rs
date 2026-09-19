@@ -194,6 +194,59 @@ fn read_focus_file(path: String) -> AppResult<focus::FocusFile> {
     focus::read(&path)
 }
 
+// The code view holds the file's text itself and edits that, writing the
+// whole file when the user asks. These take the text in and hand it back
+// re-read, so the tree follows every keystroke and every applied field
+// without a disk round trip. `path` names the file for error messages only.
+
+#[tauri::command]
+fn parse_focus_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+) -> AppResult<focus::FocusFile> {
+    focus::parse(&path, source, has_bom, encoding)
+}
+
+#[tauri::command]
+fn update_focus_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    focus_id: String,
+    update: focus::FocusUpdate,
+) -> AppResult<focus::FocusFile> {
+    let updated = focus::update_source(&path, &source, &focus_id, &update)?;
+    focus::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn add_focus_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    tree_id: String,
+    focus: focus::FocusUpdate,
+) -> AppResult<focus::FocusFile> {
+    let updated = focus::add_source(&path, &source, &tree_id, &focus)?;
+    focus::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn delete_focus_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    focus_id: String,
+) -> AppResult<focus::FocusFile> {
+    let updated = focus::delete_source(&path, &source, &focus_id)?;
+    focus::parse(&path, updated, has_bom, encoding)
+}
+
 #[tauri::command]
 fn update_focus(
     app: AppHandle,
@@ -493,6 +546,10 @@ pub fn run() {
             read_text_file,
             write_text_file,
             read_focus_file,
+            parse_focus_source,
+            update_focus_source,
+            add_focus_source,
+            delete_focus_source,
             update_focus,
             add_focus,
             delete_focus,

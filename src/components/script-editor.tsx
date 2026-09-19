@@ -160,16 +160,25 @@ function extensions(readOnly: boolean): Extension[] {
   ];
 }
 
+/** A line to move the cursor to. `key` changes on every request, so asking
+ * for the same line twice still scrolls. */
+export interface Reveal {
+  line: number;
+  key: number;
+}
+
 export function ScriptEditor({
   value,
   onChange,
   onSave,
+  reveal,
   readOnly = false,
   className,
 }: {
   value: string;
   onChange?: (value: string) => void;
   onSave?: () => void;
+  reveal?: Reveal;
   readOnly?: boolean;
   className?: string;
 }) {
@@ -231,10 +240,38 @@ export function ScriptEditor({
     const current = instance.state.doc.toString();
     if (current === value) return;
 
+    // Only the part that differs is replaced. A field applied from the form
+    // rewrites a few bytes of a long file; swapping the whole document for
+    // that would throw the cursor and the scroll position away.
+    let start = 0;
+    const shortest = Math.min(current.length, value.length);
+    while (start < shortest && current.charCodeAt(start) === value.charCodeAt(start)) start++;
+    let endCurrent = current.length;
+    let endValue = value.length;
+    while (
+      endCurrent > start &&
+      endValue > start &&
+      current.charCodeAt(endCurrent - 1) === value.charCodeAt(endValue - 1)
+    ) {
+      endCurrent--;
+      endValue--;
+    }
+
     instance.dispatch({
-      changes: { from: 0, to: current.length, insert: value },
+      changes: { from: start, to: endCurrent, insert: value.slice(start, endValue) },
     });
   }, [value]);
+
+  React.useEffect(() => {
+    const instance = view.current;
+    if (!instance || !reveal) return;
+
+    const line = instance.state.doc.line(Math.min(Math.max(reveal.line, 1), instance.state.doc.lines));
+    instance.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
+    });
+  }, [reveal]);
 
   return <div ref={host} className={className} data-selectable />;
 }

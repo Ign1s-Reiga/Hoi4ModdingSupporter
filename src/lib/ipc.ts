@@ -89,6 +89,35 @@ export const api = {
 
   readFocusFile: (path: string) => call<FocusFile>('read_focus_file', { path }),
 
+  /**
+   * The same operations on text the window holds rather than on the file, for
+   * the code view: the tree follows the buffer, and the file is written when
+   * the user asks. `path` only names the file in error messages.
+   */
+  parseFocusSource: (path: string, source: string, hasBom: boolean, encoding: Encoding) =>
+    call<FocusFile>('parse_focus_source', { path, source, hasBom, encoding }),
+
+  updateFocusSource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    focusId: string,
+    update: FocusUpdate,
+  ) => call<FocusFile>('update_focus_source', { path, source, hasBom, encoding, focusId, update }),
+
+  addFocusSource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    treeId: string,
+    focus: FocusUpdate,
+  ) => call<FocusFile>('add_focus_source', { path, source, hasBom, encoding, treeId, focus }),
+
+  deleteFocusSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, focusId: string) =>
+    call<FocusFile>('delete_focus_source', { path, source, hasBom, encoding, focusId }),
+
   updateFocus: (path: string, focusId: string, update: FocusUpdate) =>
     call<FocusFile>('update_focus', { path, focusId, update }),
 

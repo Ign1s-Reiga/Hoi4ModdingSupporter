@@ -64,6 +64,10 @@ pub struct FocusFile {
     pub focuses: Vec<Focus>,
     pub has_bom: bool,
     pub encoding: text_file::Encoding,
+    /// The text the focuses were read from. The code view edits this
+    /// directly and asks for it to be parsed again, so it travels with the
+    /// result of every operation rather than being read back separately.
+    pub source: String,
 }
 
 /// The editable fields sent back when saving. Empty strings clear a field.
@@ -89,7 +93,18 @@ pub struct FocusUpdate {
 
 pub fn read(path: &str) -> AppResult<FocusFile> {
     let file = text_file::read(Path::new(path))?;
-    let document = paradox::parse(&file.content).map_err(|source| AppError::Script {
+    parse(path, file.content, file.has_bom, file.encoding)
+}
+
+/// Reads focuses out of text the window holds, which need not be what is on
+/// disk: the code view parses its buffer as the user types.
+pub fn parse(
+    path: &str,
+    content: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+) -> AppResult<FocusFile> {
+    let document = paradox::parse(&content).map_err(|source| AppError::Script {
         path: path.to_string(),
         source,
     })?;
@@ -111,20 +126,20 @@ pub fn read(path: &str) -> AppResult<FocusFile> {
                     id: tree_id.clone(),
                     country: block
                         .find("country")
-                        .map(|country| block_body(&file.content, &country.value))
+                        .map(|country| block_body(&content, &country.value))
                         .unwrap_or_default(),
                     default: block
                         .scalar("default")
                         .map(|value| value.eq_ignore_ascii_case("yes"))
                         .unwrap_or(false),
                     focus_count: tree_focuses.len(),
-                    line: paradox::line_of(&file.content, pair.span.start),
+                    line: paradox::line_of(&content, pair.span.start),
                 });
 
                 for focus_pair in tree_focuses {
                     if let Some(focus_block) = focus_pair.value.as_block() {
                         focuses.push(read_focus(
-                            &file.content,
+                            &content,
                             focus_block,
                             &tree_id,
                             false,
@@ -134,7 +149,7 @@ pub fn read(path: &str) -> AppResult<FocusFile> {
                 }
             }
             "shared_focus" | "focus" => {
-                focuses.push(read_focus(&file.content, block, "", true, pair.span.start));
+                focuses.push(read_focus(&content, block, "", true, pair.span.start));
             }
             _ => {}
         }
@@ -144,8 +159,9 @@ pub fn read(path: &str) -> AppResult<FocusFile> {
         path: path.replace('\\', "/"),
         trees,
         focuses,
-        has_bom: file.has_bom,
-        encoding: file.encoding,
+        has_bom,
+        encoding,
+        source: content,
     })
 }
 
@@ -206,12 +222,25 @@ fn collect_focus_references(block: &Block) -> Vec<String> {
 /// Rewrites one focus in place, matched by its current id.
 pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<FocusFile> {
     let file = text_file::read(Path::new(path))?;
-    let document = paradox::parse(&file.content).map_err(|source| AppError::Script {
+    let updated = update_source(path, &file.content, focus_id, update)?;
+    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
+
+    read(path)
+}
+
+/// The edit behind [`update`], applied to text instead of a file: the code
+/// view rewrites its buffer this way and writes the whole file later.
+pub fn update_source(
+    path: &str,
+    source: &str,
+    focus_id: &str,
+    update: &FocusUpdate,
+) -> AppResult<String> {
+    let document = paradox::parse(source).map_err(|source| AppError::Script {
         path: path.to_string(),
         source,
     })?;
 
-    let source = &file.content;
     let focus = find_focus_block(&document.items, focus_id).ok_or_else(|| {
         AppError::message(format!("no focus with id `{focus_id}` exists in {path}"))
     })?;
@@ -266,21 +295,31 @@ pub fn update(path: &str, focus_id: &str, update: &FocusUpdate) -> AppResult<Foc
     };
     set_reference_groups(&mut editor, "mutually_exclusive", &exclusive_groups);
 
-    let updated = apply_edits(source, editor.finish());
-    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
-
-    read(path)
+    Ok(apply_edits(source, editor.finish()))
 }
 
 /// Appends a new focus to `tree_id`, or to the only tree in the file when the
 /// id is empty.
 pub fn add(path: &str, tree_id: &str, focus: &FocusUpdate) -> AppResult<FocusFile> {
+    let file = text_file::read(Path::new(path))?;
+    let updated = add_source(path, &file.content, tree_id, focus)?;
+    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
+
+    read(path)
+}
+
+/// The edit behind [`add`], applied to text instead of a file.
+pub fn add_source(
+    path: &str,
+    source: &str,
+    tree_id: &str,
+    focus: &FocusUpdate,
+) -> AppResult<String> {
     if focus.id.trim().is_empty() {
         return Err(AppError::message("a new focus needs an id"));
     }
 
-    let file = text_file::read(Path::new(path))?;
-    let document = paradox::parse(&file.content).map_err(|source| AppError::Script {
+    let document = paradox::parse(source).map_err(|source| AppError::Script {
         path: path.to_string(),
         source,
     })?;
@@ -292,7 +331,6 @@ pub fn add(path: &str, tree_id: &str, focus: &FocusUpdate) -> AppResult<FocusFil
         )));
     }
 
-    let source = &file.content;
     let trees: Vec<&Pair> = document.find_all("focus_tree");
     let tree = trees
         .iter()
@@ -316,28 +354,32 @@ pub fn add(path: &str, tree_id: &str, focus: &FocusUpdate) -> AppResult<FocusFil
     let body = render_focus_body(focus, &format!("{indent}\t"), newline);
     let line = format!("focus = {{{newline}{body}{newline}{indent}}}");
 
-    let updated = apply_edits(source, vec![insert_lines(source, tree_block, &[line], &[])]);
+    Ok(apply_edits(
+        source,
+        vec![insert_lines(source, tree_block, &[line], &[])],
+    ))
+}
+
+pub fn delete(path: &str, focus_id: &str) -> AppResult<FocusFile> {
+    let file = text_file::read(Path::new(path))?;
+    let updated = delete_source(path, &file.content, focus_id)?;
     text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
 
     read(path)
 }
 
-pub fn delete(path: &str, focus_id: &str) -> AppResult<FocusFile> {
-    let file = text_file::read(Path::new(path))?;
-    let document = paradox::parse(&file.content).map_err(|source| AppError::Script {
+/// The edit behind [`delete`], applied to text instead of a file.
+pub fn delete_source(path: &str, source: &str, focus_id: &str) -> AppResult<String> {
+    let document = paradox::parse(source).map_err(|source| AppError::Script {
         path: path.to_string(),
         source,
     })?;
 
-    let source = &file.content;
     let pair = find_focus_pair(&document.items, focus_id).ok_or_else(|| {
         AppError::message(format!("no focus with id `{focus_id}` exists in {path}"))
     })?;
 
-    let updated = apply_edits(source, remove_pair(source, pair));
-    text_file::write(Path::new(path), &updated, file.encoding, file.has_bom)?;
-
-    read(path)
+    Ok(apply_edits(source, remove_pair(source, pair)))
 }
 
 /// Writes a repeated `key = { focus = ... }` field, reusing the blocks that are
@@ -744,6 +786,58 @@ mod tests {
             completion_reward: focus.completion_reward.clone(),
             ai_will_do: focus.ai_will_do.clone(),
         }
+    }
+
+    #[test]
+    fn the_text_operations_need_no_file() {
+        // The code view holds the text itself: parse it, apply a field, add
+        // and delete a focus, and hand every result back with its text, all
+        // without a path that exists.
+        let parsed = parse(
+            "(buffer)",
+            TREE.to_string(),
+            false,
+            text_file::Encoding::Utf8,
+        )
+        .expect("parses");
+        assert_eq!(parsed.focuses.len(), 2);
+        assert_eq!(parsed.source, TREE);
+
+        let mut change = as_update(&parsed.focuses[0]);
+        change.cost = "42".into();
+        let updated = update_source("(buffer)", TREE, "alpha", &change).expect("updates");
+        assert!(updated.contains("cost = 42"), "{updated}");
+        assert!(!updated.contains("cost = 10"), "{updated}");
+
+        let added = add_source(
+            "(buffer)",
+            &updated,
+            "test_tree",
+            &FocusUpdate {
+                id: "gamma".into(),
+                x: "4".into(),
+                y: "0".into(),
+                cost: "10".into(),
+                ..Default::default()
+            },
+        )
+        .expect("adds");
+        let removed = delete_source("(buffer)", &added, "beta").expect("deletes");
+
+        let final_state = parse(
+            "(buffer)",
+            removed.clone(),
+            false,
+            text_file::Encoding::Utf8,
+        )
+        .expect("parses");
+        let ids: Vec<&str> = final_state
+            .focuses
+            .iter()
+            .map(|focus| focus.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["alpha", "gamma"]);
+        assert_eq!(final_state.source, removed);
     }
 
     #[test]
