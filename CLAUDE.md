@@ -23,6 +23,12 @@ All file system access, script parsing and writing lives in Rust. The frontend
 never touches the disk directly; it calls typed wrappers in `src/lib/ipc.ts`,
 which are the only place `invoke()` is used.
 
+A command that is not `async` runs on the main thread and holds up the window
+and every other command for as long as it takes. Anything that walks a folder
+or decodes a picture is an `async fn` that hands its work to `off_thread`
+(`spawn_blocking`) in `lib.rs`; the sprite and localisation indexes take
+minutes on a cold disk, and the app stayed frozen for them before this.
+
 `src-tauri/src/paradox/` is the core of the tool: a lexer and parser for the
 Clausewitz script format that records the byte range of every node, plus an
 editor that rewrites those ranges. Editing is always surgical — a save must

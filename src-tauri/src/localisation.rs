@@ -4,13 +4,18 @@
 //! followed by ` KEY:version "text"` lines. Files must be UTF-8 with a BOM or
 //! the game silently ignores them, so a BOM is always written back.
 
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Mutex;
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager};
 
+use crate::console::{self, Source};
 use crate::error::{AppError, AppResult};
 use crate::paradox::edit::detect_newline;
-use crate::text_file;
+use crate::{settings, text_file};
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -317,6 +322,133 @@ pub fn scan(folder: &str) -> AppResult<Vec<LocalisationFileInfo>> {
     Ok(files)
 }
 
+// ---------------------------------------------------------------------------
+// Looking keys up
+// ---------------------------------------------------------------------------
+
+/// Every key of each language asked for, from the game's files and the
+/// mod's, so an editor can show the text behind a key. Built on first use
+/// per language: the game's English alone is fourteen megabytes across two
+/// hundred files, and on a cold disk that read is what takes the time.
+#[derive(Default)]
+pub struct TextCache(Mutex<Option<CachedTexts>>);
+
+struct CachedTexts {
+    folder: String,
+    game_root: String,
+    by_language: HashMap<String, HashMap<String, String>>,
+}
+
+/// The text behind each of `keys` in `language`, for the keys that have one.
+pub fn texts(
+    app: &AppHandle,
+    folder: &str,
+    language: &str,
+    keys: Vec<String>,
+) -> AppResult<HashMap<String, String>> {
+    let game_root = settings::load(app)?.game_root_path;
+    let cache = app.state::<TextCache>();
+    let mut slot = cache
+        .0
+        .lock()
+        .map_err(|_| AppError::message("the localisation cache was left in a broken state"))?;
+
+    let current = slot
+        .as_ref()
+        .is_some_and(|cached| cached.folder == folder && cached.game_root == game_root);
+    if !current {
+        *slot = None;
+    }
+
+    let cached = slot.get_or_insert_with(|| CachedTexts {
+        folder: folder.to_string(),
+        game_root,
+        by_language: HashMap::new(),
+    });
+    let texts = cached
+        .by_language
+        .entry(language.to_lowercase())
+        .or_insert_with(|| {
+            let started = Instant::now();
+            let texts = index_texts(folder, &cached.game_root, language);
+            console::info(
+                app,
+                Source::App,
+                format!(
+                    "Indexed {} {language} localisation keys in {} ms",
+                    texts.len(),
+                    started.elapsed().as_millis()
+                ),
+                None,
+            );
+            texts
+        });
+
+    Ok(keys
+        .into_iter()
+        .filter_map(|key| texts.get(&key).map(|text| (key, text.clone())))
+        .collect())
+}
+
+/// Forgets the index, so the next lookup reads the files again.
+pub fn forget(app: &AppHandle) {
+    if let Ok(mut slot) = app.state::<TextCache>().0.lock() {
+        *slot = None;
+    }
+}
+
+/// Reads every `.yml` of `language` under the game and then the mod, so a
+/// key the mod redefines says what the mod says.
+fn index_texts(folder: &str, game_root: &str, language: &str) -> HashMap<String, String> {
+    let header = format!("l_{}", language.to_lowercase());
+    let mut texts = HashMap::new();
+
+    for root in [game_root, folder] {
+        if root.trim().is_empty() {
+            continue;
+        }
+
+        let mut files: Vec<std::path::PathBuf> = ["localisation", "localization"]
+            .iter()
+            .map(|directory| Path::new(root).join(directory))
+            .filter(|localisation_root| localisation_root.is_dir())
+            .flat_map(|localisation_root| {
+                walkdir::WalkDir::new(localisation_root)
+                    .follow_links(false)
+                    .into_iter()
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.file_type().is_file())
+                    .map(|entry| entry.into_path())
+                    .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yml"))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        // A `replace` folder is loaded after everything else, which is the
+        // whole point of it; the rest go in path order for a stable answer.
+        files.sort_by_cached_key(|path| (is_replacement(path), path.clone()));
+
+        for path in files {
+            let Ok(file) = text_file::read(&path) else {
+                continue;
+            };
+            let (file_language, entries) = parse(&file.content);
+            if !file_language.eq_ignore_ascii_case(&header) {
+                continue;
+            }
+            for entry in entries {
+                texts.insert(entry.key, entry.value);
+            }
+        }
+    }
+
+    texts
+}
+
+fn is_replacement(path: &Path) -> bool {
+    path.components()
+        .any(|component| component.as_os_str().eq_ignore_ascii_case("replace"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,6 +461,49 @@ mod tests {
         let path = directory.join(name);
         std::fs::write(&path, content).expect("write");
         path.display().to_string()
+    }
+
+    #[test]
+    fn the_mod_overrides_the_game_key_by_key() {
+        let directory = std::env::temp_dir().join("hoi4ms-loc-index-tests");
+        let game = directory.join("game").join("localisation").join("english");
+        let game_replace = game.join("replace");
+        let mod_folder = directory.join("mod");
+        let mod_loc = mod_folder.join("localisation");
+        for path in [&game_replace, &mod_loc] {
+            std::fs::create_dir_all(path).expect("temp dirs");
+        }
+        std::fs::write(
+            game.join("a_l_english.yml"),
+            "l_english:\n GREETING:0 \"Hello\"\n ONLY_GAME:0 \"Game\"\n REPLACED:0 \"old\"\n",
+        )
+        .expect("write");
+        std::fs::write(
+            game_replace.join("0_l_english.yml"),
+            "l_english:\n REPLACED:1 \"new\"\n",
+        )
+        .expect("write");
+        std::fs::write(
+            mod_loc.join("mod_l_english.yml"),
+            "\u{feff}l_english:\n GREETING:0 \"Servus\"\n ONLY_MOD:0 \"Mod\"\n",
+        )
+        .expect("write");
+        std::fs::write(
+            mod_loc.join("mod_l_french.yml"),
+            "l_french:\n GREETING:0 \"Bonjour\"\n",
+        )
+        .expect("write");
+
+        let texts = index_texts(
+            &mod_folder.display().to_string(),
+            &directory.join("game").display().to_string(),
+            "english",
+        );
+
+        assert_eq!(texts.get("GREETING").map(String::as_str), Some("Servus"));
+        assert_eq!(texts.get("ONLY_GAME").map(String::as_str), Some("Game"));
+        assert_eq!(texts.get("ONLY_MOD").map(String::as_str), Some("Mod"));
+        assert_eq!(texts.get("REPLACED").map(String::as_str), Some("new"));
     }
 
     #[test]

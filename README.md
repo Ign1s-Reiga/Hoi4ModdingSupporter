@@ -21,7 +21,9 @@ static export served inside the Tauri window.
   fields applied from the form land in the text.
 - **Event editor** — a file's events with their title and description keys,
   picture, flags, trigger and options, edited beside the file's text; the
-  effects of an option stay script. Events sharing an id are flagged.
+  effects of an option stay script. Events sharing an id are flagged. A
+  preview draws the window the game would, with the text behind the keys
+  in any language the mod writes.
 - **Character editor** — the people a country recruits: name, gender and
   portraits, with country leader, advisor and commander roles edited as
   cards, beside the file's text in the same split view. Portraits are

@@ -22,6 +22,20 @@ use tauri::{AppHandle, Manager, State};
 use console::Source;
 use error::{AppError, AppResult};
 
+/// Runs file work on a worker thread and hands the outcome back.
+///
+/// A command that is not `async` runs on the main thread, and holds up the
+/// window and every other command for as long as it takes: indexing the
+/// game's sprites or its localisation is minutes on a cold disk. Anything
+/// that walks a folder or decodes a picture goes through here.
+async fn off_thread<T: Send + 'static>(
+    work: impl FnOnce() -> AppResult<T> + Send + 'static,
+) -> AppResult<T> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| AppError::message(format!("the work panicked: {error}")))?
+}
+
 /// Upper bound for a full mod scan. Large total conversions land well under
 /// this; anything past it is reported as truncated instead of freezing the UI.
 const MAX_PROJECT_FILES: usize = 20_000;
@@ -134,14 +148,17 @@ fn forget_recent_project(app: AppHandle, folder_path: String) -> AppResult<setti
 }
 
 #[tauri::command]
-fn scan_project_files(folder_path: String) -> AppResult<project::ScanResult> {
-    project::scan(&folder_path, MAX_PROJECT_FILES)
+async fn scan_project_files(folder_path: String) -> AppResult<project::ScanResult> {
+    off_thread(move || project::scan(&folder_path, MAX_PROJECT_FILES)).await
 }
 
 /// Lists one folder, used by the mod and game asset browsers.
 #[tauri::command]
-fn scan_directory(root_path: String, max_files: Option<usize>) -> AppResult<project::ScanResult> {
-    project::scan(&root_path, max_files.unwrap_or(MAX_BROWSE_FILES))
+async fn scan_directory(
+    root_path: String,
+    max_files: Option<usize>,
+) -> AppResult<project::ScanResult> {
+    off_thread(move || project::scan(&root_path, max_files.unwrap_or(MAX_BROWSE_FILES))).await
 }
 
 #[tauri::command]
@@ -189,6 +206,7 @@ pub(crate) fn forget_caches(app: &AppHandle) {
         *slot = None;
     }
     sprites::forget(app);
+    localisation::forget(app);
 }
 
 #[tauri::command]
@@ -296,10 +314,10 @@ fn delete_focus(app: AppHandle, path: String, focus_id: String) -> AppResult<foc
 }
 
 #[tauri::command]
-fn list_localisation_files(
+async fn list_localisation_files(
     folder_path: String,
 ) -> AppResult<Vec<localisation::LocalisationFileInfo>> {
-    localisation::scan(&folder_path)
+    off_thread(move || localisation::scan(&folder_path)).await
 }
 
 #[tauri::command]
@@ -315,6 +333,7 @@ fn write_localisation_file(
     entries: Vec<localisation::LocalisationEntry>,
 ) -> AppResult<localisation::LocalisationFile> {
     let saved = localisation::write(&path, &language, &entries)?;
+    localisation::forget(&app);
     console::info(
         &app,
         Source::Files,
@@ -460,10 +479,10 @@ fn update_state(
 }
 
 #[tauri::command]
-fn list_country_history(
+async fn list_country_history(
     folder_path: String,
 ) -> AppResult<Vec<country_history::CountryHistoryInfo>> {
-    country_history::scan(&folder_path)
+    off_thread(move || country_history::scan(&folder_path)).await
 }
 
 #[tauri::command]
@@ -551,57 +570,86 @@ fn with_map<T>(
 }
 
 #[tauri::command]
-fn load_map(
+async fn load_map(
     app: AppHandle,
-    cache: State<'_, MapCache>,
     folder_path: String,
     replace_paths: Vec<String>,
 ) -> AppResult<map::MapSummary> {
-    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
-        Ok(data.summary())
+    off_thread(move || {
+        with_map(
+            &app,
+            &app.state::<MapCache>(),
+            &folder_path,
+            &replace_paths,
+            |data| Ok(data.summary()),
+        )
     })
+    .await
 }
 
 #[tauri::command]
-fn render_map(
+async fn render_map(
     app: AppHandle,
-    cache: State<'_, MapCache>,
     folder_path: String,
     replace_paths: Vec<String>,
     mode: map::MapMode,
 ) -> AppResult<String> {
-    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
-        data.render(mode)
+    off_thread(move || {
+        with_map(
+            &app,
+            &app.state::<MapCache>(),
+            &folder_path,
+            &replace_paths,
+            |data| data.render(mode),
+        )
     })
+    .await
 }
 
 #[tauri::command]
-fn pick_province(
+async fn pick_province(
     app: AppHandle,
-    cache: State<'_, MapCache>,
     folder_path: String,
     replace_paths: Vec<String>,
     x: u32,
     y: u32,
 ) -> AppResult<Option<map::ProvincePick>> {
-    with_map(&app, &cache, &folder_path, &replace_paths, |data| {
-        Ok(data.pick(x, y))
+    off_thread(move || {
+        with_map(
+            &app,
+            &app.state::<MapCache>(),
+            &folder_path,
+            &replace_paths,
+            |data| Ok(data.pick(x, y)),
+        )
     })
+    .await
 }
 
 #[tauri::command]
-fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<String> {
-    assets::image_data_url(&path, max_dimension)
+async fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppResult<String> {
+    off_thread(move || assets::image_data_url(&path, max_dimension)).await
+}
+
+/// The text behind localisation keys, for showing what a key will say.
+#[tauri::command]
+async fn localised_texts(
+    app: AppHandle,
+    folder_path: String,
+    language: String,
+    keys: Vec<String>,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    off_thread(move || localisation::texts(&app, &folder_path, &language, keys)).await
 }
 
 /// Resolves `GFX_...` names to pictures the window can draw.
 #[tauri::command]
-fn sprite_icons(
+async fn sprite_icons(
     app: AppHandle,
     folder_path: String,
     names: Vec<String>,
 ) -> AppResult<Vec<sprites::SpriteIcon>> {
-    sprites::icons(&app, &folder_path, names)
+    off_thread(move || sprites::icons(&app, &folder_path, names)).await
 }
 
 #[tauri::command]
@@ -625,6 +673,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(MapCache::default())
         .manage(sprites::SpriteCache::default())
+        .manage(localisation::TextCache::default())
         .manage(console::Console::default())
         .manage(project::Open::default())
         .manage(mcp::McpState::default())
@@ -684,6 +733,7 @@ pub fn run() {
             read_localisation_file,
             write_localisation_file,
             read_image_data_url,
+            localised_texts,
             sprite_icons,
             path_exists,
             validate_game_root,
