@@ -206,6 +206,7 @@ pub(crate) fn forget_caches(app: &AppHandle) {
         *slot = None;
     }
     sprites::forget(app);
+    localisation::forget(app);
 }
 
 #[tauri::command]
@@ -332,6 +333,7 @@ fn write_localisation_file(
     entries: Vec<localisation::LocalisationEntry>,
 ) -> AppResult<localisation::LocalisationFile> {
     let saved = localisation::write(&path, &language, &entries)?;
+    localisation::forget(&app);
     console::info(
         &app,
         Source::Files,
@@ -629,6 +631,17 @@ async fn read_image_data_url(path: String, max_dimension: Option<u32>) -> AppRes
     off_thread(move || assets::image_data_url(&path, max_dimension)).await
 }
 
+/// The text behind localisation keys, for showing what a key will say.
+#[tauri::command]
+async fn localised_texts(
+    app: AppHandle,
+    folder_path: String,
+    language: String,
+    keys: Vec<String>,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    off_thread(move || localisation::texts(&app, &folder_path, &language, keys)).await
+}
+
 /// Resolves `GFX_...` names to pictures the window can draw.
 #[tauri::command]
 async fn sprite_icons(
@@ -660,6 +673,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(MapCache::default())
         .manage(sprites::SpriteCache::default())
+        .manage(localisation::TextCache::default())
         .manage(console::Console::default())
         .manage(project::Open::default())
         .manage(mcp::McpState::default())
@@ -719,6 +733,7 @@ pub fn run() {
             read_localisation_file,
             write_localisation_file,
             read_image_data_url,
+            localised_texts,
             sprite_icons,
             path_exists,
             validate_game_root,

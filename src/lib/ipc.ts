@@ -214,6 +214,10 @@ export const api = {
    * Asked in batches: the backend keeps the index and the decoded pictures, so
    * one call for a whole focus tree costs a great deal less than one per node.
    */
+  /** The text behind localisation keys in one language; keys with none are left out. */
+  localisedTexts: (folderPath: string, language: string, keys: string[]) =>
+    call<Record<string, string>>('localised_texts', { folderPath, language, keys }),
+
   spriteIcons: (folderPath: string, names: string[]) => call<SpriteIcon[]>('sprite_icons', { folderPath, names }),
 
   pathExists: (path: string) => call<boolean>('path_exists', { path }),

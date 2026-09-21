@@ -2,10 +2,23 @@
 
 import * as React from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { CalendarClock, ClipboardList, FileText, ImageOff, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import {
+  CalendarClock,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  FileText,
+  ImageOff,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { BlockField } from '@/components/block-field';
+import { EventPreview, previewKeys } from '@/components/event-preview';
 import type { Reveal } from '@/components/script-editor';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from '@/components/ui/dialog';
@@ -16,6 +29,7 @@ import { SourcePane, useStoredView, ViewToggle } from '@/components/view-toggle'
 import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useLocalisedTexts } from '@/lib/use-localised-texts';
 import { useSourceDocument } from '@/lib/use-source-document';
 import { useSpriteIcons } from '@/lib/use-sprite-icons';
 import { useUnsavedIn } from '@/lib/use-unsaved';
@@ -39,6 +53,8 @@ const FILE_CHANGED_EVENT = 'project://file-changed';
 
 /** Where the panel's layout choice is remembered. */
 const VIEW_KEY = 'hoi4ms.events-view';
+const PREVIEW_KEY = 'hoi4ms.events-preview';
+const LANGUAGE_KEY = 'hoi4ms.preview-language';
 
 const EVENT_KINDS: Array<{ value: EventKind; label: string }> = [
   { value: 'country_event', label: 'Country' },
@@ -57,6 +73,22 @@ const FLAGS: Array<{ key: 'fireOnlyOnce' | 'isTriggeredOnly' | 'hidden' | 'major
 
 function kindLabel(kind: string): string {
   return EVENT_KINDS.find((entry) => entry.value === kind)?.label ?? kind;
+}
+
+function stored(key: string, fallback: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function remember(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // A private window forgets; the choice still holds for this session.
+  }
 }
 
 /** `a`, `b`, `c` …: how the game's files name a second title or description. */
@@ -104,6 +136,11 @@ export default function EventsPage() {
 
   const [view, chooseView] = useStoredView(VIEW_KEY);
   const [reveal, setReveal] = React.useState<Reveal | undefined>(undefined);
+  // The preview beside the editor: the window the game would draw, with
+  // the text behind the keys in a language the mod has files for.
+  const [previewOpen, setPreviewOpen] = React.useState(() => stored(PREVIEW_KEY, '1') === '1');
+  const [language, setLanguage] = React.useState(() => stored(LANGUAGE_KEY, 'english'));
+  const [languages, setLanguages] = React.useState<string[]>([]);
 
   const files = React.useMemo(
     () =>
@@ -155,6 +192,46 @@ export default function EventsPage() {
   useUnsavedIn('event editor', isDirty || sourceDirty);
 
   const icons = useSpriteIcons(project?.folderPath, draft ? [draft.picture] : []);
+
+  const wantedKeys = React.useMemo(() => (draft && previewOpen ? previewKeys(draft) : []), [draft, previewOpen]);
+  const texts = useLocalisedTexts(project?.folderPath, language, wantedKeys);
+  // The first lookup of a language reads every localisation file the game
+  // and the mod have, which on a cold disk is a while.
+  const isLookingUp = wantedKeys.some((key) => !texts.has(key));
+
+  // The languages the mod writes, from its localisation files' headers.
+  const folder = project?.folderPath;
+  React.useEffect(() => {
+    if (!folder) return;
+
+    let cancelled = false;
+    api
+      .listLocalisationFiles(folder)
+      .then((files) => {
+        if (cancelled) return;
+        const found = new Set(files.map((entry) => entry.language.replace(/^l_/i, '')).filter(Boolean));
+        setLanguages([...found].sort());
+      })
+      .catch(() => {
+        // The picker then offers the language already chosen, nothing more.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [folder]);
+
+  function togglePreview() {
+    setPreviewOpen((open) => {
+      remember(PREVIEW_KEY, open ? '0' : '1');
+      return !open;
+    });
+  }
+
+  function chooseLanguage(next: string) {
+    setLanguage(next);
+    remember(LANGUAGE_KEY, next);
+  }
 
   const { adopt: adoptFile, show } = doc;
 
@@ -395,7 +472,12 @@ export default function EventsPage() {
     );
 
   return (
-    <div className='grid h-full grid-cols-[16rem_minmax(0,1fr)] gap-3 p-3'>
+    <div
+      className={cn(
+        'grid h-full gap-3 p-3',
+        previewOpen ? 'grid-cols-[16rem_minmax(0,1fr)_26rem]' : 'grid-cols-[16rem_minmax(0,1fr)]',
+      )}
+    >
       <div className='grid min-h-0 grid-rows-[2fr_3fr] gap-3'>
         <Panel>
           <PanelHeader title='Event files' subtitle={`${files.length} in ${EVENT_FOLDER}`} />
@@ -493,6 +575,15 @@ export default function EventsPage() {
                   Save file
                 </Button>
               ) : null}
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                title={previewOpen ? 'Hide the preview' : 'Preview the event as the game shows it'}
+                aria-pressed={previewOpen}
+                onClick={togglePreview}
+              >
+                {previewOpen ? <EyeOff /> : <Eye />}
+              </Button>
               <ViewToggle value={view} onChange={chooseView} visual={{ label: 'Form', icon: ClipboardList }} />
             </>
           }
@@ -527,6 +618,40 @@ export default function EventsPage() {
           )}
         </PanelBody>
       </Panel>
+
+      {previewOpen ? (
+        <Panel>
+          <PanelHeader
+            title='Preview'
+            subtitle={isLookingUp ? `Reading ${language} localisation…` : 'As the game would show it'}
+            actions={
+              <Select value={language} onValueChange={chooseLanguage}>
+                <SelectTrigger className='h-7 w-32 text-xs'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...new Set([language, ...languages])].map((entry) => (
+                    <SelectItem key={entry} value={entry}>
+                      {entry}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            }
+          />
+          <PanelBody className='bg-surface-sunken p-4'>
+            {draft ? (
+              <EventPreview event={draft} texts={texts} picture={icons.get(draft.picture.trim())} />
+            ) : (
+              <EmptyState
+                icon={<Eye />}
+                title='Nothing to preview'
+                description='Select an event to see the window the game would draw for it.'
+              />
+            )}
+          </PanelBody>
+        </Panel>
+      ) : null}
 
       {/* Mounted only while open so its fields start fresh every time. */}
       {isAdding && file ? (
