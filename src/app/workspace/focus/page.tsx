@@ -2,37 +2,26 @@
 
 import * as React from 'react';
 import { listen } from '@tauri-apps/api/event';
-import {
-  Code2,
-  Columns2,
-  FileText,
-  FolderTree,
-  ImageOff,
-  LayoutTemplate,
-  Loader2,
-  Plus,
-  Save,
-  Trash2,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
+import { FileText, FolderTree, ImageOff, LayoutTemplate, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { BlockField } from '@/components/block-field';
 import { FocusCanvas } from '@/components/focus-canvas';
-import { ScriptEditor, type Reveal } from '@/components/script-editor';
+import type { Reveal } from '@/components/script-editor';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { CodeInput, Field, Label, Textarea } from '@/components/ui/form';
 import { Badge, EmptyState, ListRow, Panel, PanelBody, PanelHeader } from '@/components/ui/panel';
+import { SourcePane, useStoredView, ViewToggle } from '@/components/view-toggle';
 import { confirmDelete, confirmDiscard } from '@/lib/dialogs';
 import { api, describeError } from '@/lib/ipc';
 import { useAppStore } from '@/lib/store';
+import { useSourceDocument } from '@/lib/use-source-document';
 import { isScriptedIcon, spriteName, useSpriteIcons } from '@/lib/use-sprite-icons';
 import { useUnsavedIn } from '@/lib/use-unsaved';
 import {
   emptyFocusUpdate,
   toFocusUpdate,
-  type Encoding,
   type FocusFile,
   type FocusTree,
   type FocusUpdate,
@@ -46,42 +35,8 @@ const FOCUS_FOLDER = 'common/national_focus';
 /** Sent by the backend when an MCP client writes a file. */
 const FILE_CHANGED_EVENT = 'project://file-changed';
 
-/** How the tree panel is laid out. Remembered per machine. */
-type View = 'visual' | 'split' | 'code';
+/** Where the tree panel's layout choice is remembered. */
 const VIEW_KEY = 'hoi4ms.focus-view';
-const VIEWS: Array<{ value: View; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { value: 'visual', label: 'Visual', icon: LayoutTemplate },
-  { value: 'split', label: 'Split', icon: Columns2 },
-  { value: 'code', label: 'Code', icon: Code2 },
-];
-
-/** How long the buffer sits still before it is parsed again. */
-const PARSE_DELAY_MS = 250;
-
-type Newline = '\n' | '\r\n';
-
-/**
- * The buffer is kept with `\n` line breaks, which is the only kind the code
- * editor produces; the file's own kind is remembered and put back on write.
- * Without this, opening a CRLF file marked it changed on the spot, and saving
- * would have rewritten every line ending.
- */
-function toBuffer(text: string): string {
-  return text.replaceAll('\r\n', '\n');
-}
-
-function newlineOf(text: string): Newline {
-  return text.includes('\r\n') ? '\r\n' : '\n';
-}
-
-function storedView(): View {
-  try {
-    const stored = window.localStorage.getItem(VIEW_KEY);
-    return VIEWS.some((view) => view.value === stored) ? (stored as View) : 'visual';
-  } catch {
-    return 'visual';
-  }
-}
 
 /**
  * The focus editor.
@@ -110,15 +65,7 @@ export default function FocusPage() {
   // first read pass while the third is still in flight.
   const openRequest = React.useRef(0);
 
-  const [view, setView] = React.useState<View>(storedView);
-  // The document: what the code view shows and every edit goes through.
-  const [source, setSource] = React.useState('');
-  // What the file on disk last held, so the two can be compared.
-  const [savedSource, setSavedSource] = React.useState('');
-  const [encoding, setEncoding] = React.useState<Encoding>('utf8');
-  const [hasBom, setHasBom] = React.useState(false);
-  const [newline, setNewline] = React.useState<Newline>('\n');
-  const [parseError, setParseError] = React.useState<string | null>(null);
+  const [view, chooseView] = useStoredView(VIEW_KEY);
   const [reveal, setReveal] = React.useState<Reveal | undefined>(undefined);
 
   const files = React.useMemo(
@@ -126,7 +73,35 @@ export default function FocusPage() {
     [scan],
   );
 
-  const sourceDirty = source !== savedSource;
+  // What the parse callback below needs to know at the moment it lands, not
+  // at the moment the timer was set.
+  const latest = React.useRef({ isDirty, selectedId });
+  React.useEffect(() => {
+    latest.current = { isDirty, selectedId };
+  });
+
+  // The tree follows the code view: the buffer is parsed once it sits still.
+  const openPath = selectedFile?.fullPath;
+  const doc = useSourceDocument<FocusFile>({
+    path: openPath,
+    parse: api.parseFocusSource,
+    onParsed: (parsed) => {
+      const current = latest.current.selectedId;
+      const stillThere = current !== null && parsed.focuses.some((focus) => focus.id === current);
+      const nextId = stillThere ? current : (parsed.focuses[0]?.id ?? null);
+
+      setFocusFile(parsed);
+      setSelectedId(nextId);
+      // A form the user is mid-way through editing keeps its draft; an
+      // untouched one follows the new text.
+      if (!latest.current.isDirty) {
+        const focus = parsed.focuses.find((entry) => entry.id === nextId);
+        setDraft(focus ? toFocusUpdate(focus) : null);
+      }
+    },
+  });
+  const { source, setSource, isDirty: sourceDirty, parseError } = doc;
+
   // With the code hidden and the text untouched, the form's Save writes the
   // file, the way it always has. Once the text has edits of its own the form
   // can only apply: writing would take those along uninvited.
@@ -146,40 +121,20 @@ export default function FocusPage() {
   const iconNames = React.useMemo(() => shown.map((focus) => spriteName(focus.icon)), [shown]);
   const icons = useSpriteIcons(project?.folderPath, iconNames);
 
-  function chooseView(next: View) {
-    setView(next);
-    try {
-      window.localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // A private window forgets; the choice still holds for this session.
-    }
-  }
-
-  /**
-   * Takes on a file as it was just read from disk: its text is what is
-   * saved, and how it was written is how it will be written again. A file
-   * handed back by a buffer operation goes through `applyFile` alone,
-   * since its text describes the encoding it was asked for, not what the
-   * disk ended up with.
-   */
-  const adoptFile = React.useCallback((loaded: FocusFile) => {
-    setSavedSource(toBuffer(loaded.source));
-    setEncoding(loaded.encoding);
-    setHasBom(loaded.hasBom);
-    setNewline(newlineOf(loaded.source));
-  }, []);
+  const { adopt: adoptFile, show } = doc;
 
   /** Shows a file the backend handed back, selecting `focusId`. */
-  const applyFile = React.useCallback((loaded: FocusFile, focusId: string | null) => {
-    const text = toBuffer(loaded.source);
-    setFocusFile({ ...loaded, source: text });
-    setSource(text);
-    setParseError(null);
-    setSelectedId(focusId);
-    const focus = loaded.focuses.find((entry) => entry.id === focusId);
-    setDraft(focus ? toFocusUpdate(focus) : null);
-    setIsDirty(false);
-  }, []);
+  const applyFile = React.useCallback(
+    (loaded: FocusFile, focusId: string | null) => {
+      setFocusFile(loaded);
+      show(loaded);
+      setSelectedId(focusId);
+      const focus = loaded.focuses.find((entry) => entry.id === focusId);
+      setDraft(focus ? toFocusUpdate(focus) : null);
+      setIsDirty(false);
+    },
+    [show],
+  );
 
   async function confirmLeavingEdits(): Promise<boolean> {
     if (isDirty && !(await confirmDiscard('Discard unsaved focus changes?'))) return false;
@@ -211,52 +166,6 @@ export default function FocusPage() {
       if (openRequest.current === request) setIsLoading(false);
     }
   }
-
-  // What the parse callback below needs to know at the moment it lands, not
-  // at the moment the timer was set.
-  const latest = React.useRef({ isDirty, selectedId });
-  React.useEffect(() => {
-    latest.current = { isDirty, selectedId };
-  });
-
-  // The tree follows the code view. The buffer is parsed once it sits still,
-  // and a text that does not parse keeps the last tree up with the error
-  // shown beside the code, so a half-typed block does not blank the canvas.
-  const openPath = selectedFile?.fullPath;
-  React.useEffect(() => {
-    if (!openPath || !focusFile || source === focusFile.source) return;
-
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void api
-        .parseFocusSource(openPath, source, hasBom, encoding)
-        .then((parsed) => {
-          if (cancelled) return;
-
-          const current = latest.current.selectedId;
-          const stillThere = current !== null && parsed.focuses.some((focus) => focus.id === current);
-          const nextId = stillThere ? current : (parsed.focuses[0]?.id ?? null);
-
-          setFocusFile(parsed);
-          setParseError(null);
-          setSelectedId(nextId);
-          // A form the user is mid-way through editing keeps its draft; an
-          // untouched one follows the new text.
-          if (!latest.current.isDirty) {
-            const focus = parsed.focuses.find((entry) => entry.id === nextId);
-            setDraft(focus ? toFocusUpdate(focus) : null);
-          }
-        })
-        .catch((error: unknown) => {
-          if (!cancelled) setParseError(describeError(error));
-        });
-    }, PARSE_DELAY_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [encoding, focusFile, hasBom, openPath, source]);
 
   // An assistant editing this file through MCP would otherwise leave the
   // tree showing what the file used to say. Unsaved edits win: the reload
@@ -330,11 +239,8 @@ export default function FocusPage() {
   async function writeFile(text: string) {
     if (!selectedFile) return;
 
-    const used = await api.writeTextFile(selectedFile.fullPath, text.replaceAll('\n', newline), encoding, hasBom);
-    setSavedSource(text);
-    if (used !== encoding) {
-      // The text outgrew Windows-1252, so the backend fell back to UTF-8.
-      setEncoding(used);
+    const used = await doc.write(text);
+    if (used !== doc.encoding) {
       toast.warning(`Saved ${selectedFile.name} as UTF-8 - the new text does not fit Windows-1252`);
     }
   }
@@ -387,7 +293,7 @@ export default function FocusPage() {
     const change = draft;
 
     await commit(
-      () => api.updateFocusSource(path, source, hasBom, encoding, id, change),
+      () => api.updateFocusSource(path, source, doc.hasBom, doc.encoding, id, change),
       // The id itself may have changed, so follow the draft rather than the old id.
       () => change.id || id,
       change.id || id,
@@ -403,7 +309,7 @@ export default function FocusPage() {
     const id = selectedId;
 
     await commit(
-      () => api.deleteFocusSource(path, source, hasBom, encoding, id),
+      () => api.deleteFocusSource(path, source, doc.hasBom, doc.encoding, id),
       (updated) => updated.focuses[0]?.id ?? null,
       id,
     );
@@ -414,7 +320,7 @@ export default function FocusPage() {
     const path = selectedFile.fullPath;
 
     await commit(
-      () => api.addFocusSource(path, source, hasBom, encoding, treeId, focus),
+      () => api.addFocusSource(path, source, doc.hasBom, doc.encoding, treeId, focus),
       () => focus.id,
       focus.id,
     );
@@ -503,28 +409,7 @@ export default function FocusPage() {
                   Save file
                 </Button>
               ) : null}
-              <div role='radiogroup' aria-label='Layout' className='flex rounded-md border border-border p-0.5'>
-                {VIEWS.map((option) => {
-                  const Icon = option.icon;
-                  const active = option.value === view;
-                  return (
-                    <button
-                      key={option.value}
-                      type='button'
-                      role='radio'
-                      aria-checked={active}
-                      title={option.label}
-                      onClick={() => chooseView(option.value)}
-                      className={cn(
-                        'flex size-7 items-center justify-center rounded transition-colors',
-                        active ? 'bg-surface-sunken text-foreground' : 'text-muted hover:text-foreground',
-                      )}
-                    >
-                      <Icon className='size-4' />
-                    </button>
-                  );
-                })}
-              </div>
+              <ViewToggle value={view} onChange={chooseView} visual={{ label: 'Visual', icon: LayoutTemplate }} />
             </>
           }
         />
@@ -543,21 +428,14 @@ export default function FocusPage() {
           ) : (
             <div className={cn('grid h-full', view === 'split' ? 'grid-cols-2' : 'grid-cols-1')}>
               {view !== 'visual' ? (
-                <div className={cn('flex min-h-0 flex-col', view === 'split' && 'border-r border-border')}>
-                  {parseError ? (
-                    <div className='flex shrink-0 items-start gap-2 border-b border-border bg-danger-soft px-3 py-1.5 text-xs text-danger'>
-                      <TriangleAlert className='mt-0.5 size-3.5 shrink-0' />
-                      <span className='min-w-0 break-words'>{parseError}</span>
-                    </div>
-                  ) : null}
-                  <ScriptEditor
-                    value={source}
-                    onChange={setSource}
-                    onSave={() => void saveFile()}
-                    reveal={reveal}
-                    className='min-h-0 flex-1 overflow-hidden'
-                  />
-                </div>
+                <SourcePane
+                  source={source}
+                  parseError={parseError}
+                  reveal={reveal}
+                  onChange={setSource}
+                  onSave={() => void saveFile()}
+                  className={cn(view === 'split' && 'border-r border-border')}
+                />
               ) : null}
               {view !== 'code' ? (
                 focuses.length === 0 ? (
@@ -804,35 +682,6 @@ function IconPreview({ icon }: { icon: SpriteIcon | undefined }) {
         {icon === undefined ? '' : icon.path || 'No interface/*.gfx file defines this sprite'}
       </p>
     </div>
-  );
-}
-
-/** A script block shown as plain text, collapsed unless it has content. */
-function BlockField({
-  label,
-  value,
-  onChange,
-  open,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  open?: boolean;
-}) {
-  return (
-    <details open={open || value.trim().length > 0} className='group'>
-      <summary className='cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted marker:content-none hover:text-foreground'>
-        {label}
-        {value.trim() ? '' : ' · empty'}
-      </summary>
-      <Textarea
-        className='mt-1.5'
-        rows={4}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder='add_political_power = 120'
-      />
-    </details>
   );
 }
 
