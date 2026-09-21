@@ -137,6 +137,85 @@ export interface FocusFile {
 
 export type FocusUpdate = Omit<Focus, 'treeId' | 'shared' | 'line'>;
 
+/** The six pictures a character can carry, by group and size. */
+export interface Portraits {
+  civilianLarge: string;
+  civilianSmall: string;
+  armyLarge: string;
+  armySmall: string;
+  navyLarge: string;
+  navySmall: string;
+}
+
+export interface CountryLeader {
+  ideology: string;
+  traits: string[];
+  /** A date such as `1965.1.1.1`. */
+  expire: string;
+  desc: string;
+}
+
+export interface Advisor {
+  slot: string;
+  ideaToken: string;
+  ledger: string;
+  cost: string;
+  removalCost: string;
+  /** `yes`, `no`, or empty when the file does not say. */
+  canBeFired: string;
+  traits: string[];
+  /** Bodies of the trigger and weight blocks, kept as text. */
+  allowed: string;
+  available: string;
+  visible: string;
+  aiWillDo: string;
+}
+
+export type CommanderKind = 'corps_commander' | 'field_marshal' | 'navy_leader';
+
+export interface Commander {
+  kind: CommanderKind;
+  skill: string;
+  attackSkill: string;
+  defenseSkill: string;
+  /** Army only; a navy leader has maneuvering and coordination instead. */
+  planningSkill: string;
+  logisticsSkill: string;
+  maneuveringSkill: string;
+  coordinationSkill: string;
+  legacyId: string;
+  traits: string[];
+}
+
+/** One `id = { }` block of a `common/characters` file. */
+export interface Character {
+  id: string;
+  name: string;
+  gender: string;
+  portraits: Portraits;
+  allowedCivilWar: string;
+  leaders: CountryLeader[];
+  advisors: Advisor[];
+  commanders: Commander[];
+  /**
+   * Defined through `instance` blocks, one per DLC set-up. The fields come
+   * from the first; the form leaves such a character to the code view.
+   */
+  hasInstances: boolean;
+  line: number;
+}
+
+export interface CharacterFile {
+  path: string;
+  characters: Character[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** The text the characters were read from; the code view edits it directly. */
+  source: string;
+}
+
+export type CharacterUpdate = Omit<Character, 'hasInstances' | 'line'>;
+
 /** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
 export interface SpriteIcon {
   name: string;
@@ -205,6 +284,73 @@ export function toFocusUpdate(focus: Focus): FocusUpdate {
     allowBranch: focus.allowBranch,
     completionReward: focus.completionReward,
     aiWillDo: focus.aiWillDo,
+  };
+}
+
+export function emptyPortraits(): Portraits {
+  return { civilianLarge: '', civilianSmall: '', armyLarge: '', armySmall: '', navyLarge: '', navySmall: '' };
+}
+
+export function emptyCountryLeader(): CountryLeader {
+  return { ideology: '', traits: [], expire: '', desc: '' };
+}
+
+export function emptyAdvisor(): Advisor {
+  return {
+    slot: '',
+    ideaToken: '',
+    ledger: '',
+    cost: '',
+    removalCost: '',
+    canBeFired: '',
+    traits: [],
+    allowed: '',
+    available: '',
+    visible: '',
+    aiWillDo: '',
+  };
+}
+
+export function emptyCommander(kind: CommanderKind): Commander {
+  return {
+    kind,
+    skill: '',
+    attackSkill: '',
+    defenseSkill: '',
+    planningSkill: '',
+    logisticsSkill: '',
+    maneuveringSkill: '',
+    coordinationSkill: '',
+    legacyId: '',
+    traits: [],
+  };
+}
+
+/** The editable fields of a character, with everything blank. */
+export function emptyCharacterUpdate(): CharacterUpdate {
+  return {
+    id: '',
+    name: '',
+    gender: '',
+    portraits: emptyPortraits(),
+    allowedCivilWar: '',
+    leaders: [],
+    advisors: [],
+    commanders: [],
+  };
+}
+
+/** The editable fields of an existing character, without its source position. */
+export function toCharacterUpdate(character: Character): CharacterUpdate {
+  return {
+    id: character.id,
+    name: character.name,
+    gender: character.gender,
+    portraits: character.portraits,
+    allowedCivilWar: character.allowedCivilWar,
+    leaders: character.leaders,
+    advisors: character.advisors,
+    commanders: character.commanders,
   };
 }
 

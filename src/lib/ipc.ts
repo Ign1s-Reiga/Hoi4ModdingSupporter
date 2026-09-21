@@ -9,6 +9,8 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import type {
+  CharacterFile,
+  CharacterUpdate,
   ConsoleEntry,
   CountryHistory,
   CountryHistoryInfo,
@@ -117,6 +119,26 @@ export const api = {
 
   deleteFocusSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, focusId: string) =>
     call<FocusFile>('delete_focus_source', { path, source, hasBom, encoding, focusId }),
+
+  readCharacterFile: (path: string) => call<CharacterFile>('read_character_file', { path }),
+
+  parseCharacterSource: (path: string, source: string, hasBom: boolean, encoding: Encoding) =>
+    call<CharacterFile>('parse_character_source', { path, source, hasBom, encoding }),
+
+  updateCharacterSource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    characterId: string,
+    update: CharacterUpdate,
+  ) => call<CharacterFile>('update_character_source', { path, source, hasBom, encoding, characterId, update }),
+
+  addCharacterSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, character: CharacterUpdate) =>
+    call<CharacterFile>('add_character_source', { path, source, hasBom, encoding, character }),
+
+  deleteCharacterSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, characterId: string) =>
+    call<CharacterFile>('delete_character_source', { path, source, hasBom, encoding, characterId }),
 
   updateFocus: (path: string, focusId: string, update: FocusUpdate) =>
     call<FocusFile>('update_focus', { path, focusId, update }),

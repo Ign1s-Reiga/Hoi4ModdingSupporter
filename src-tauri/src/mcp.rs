@@ -41,7 +41,9 @@ use tokio_util::sync::CancellationToken;
 use crate::console::{self, Source};
 use crate::error::{AppError, AppResult};
 use crate::project::{self, normalise_path, ModProject};
-use crate::{country_history, focus, localisation, settings, sprites, state, text_file};
+use crate::{
+    characters, country_history, focus, localisation, settings, sprites, state, text_file,
+};
 
 /// Event carrying the path of a file an MCP client changed, so an editor
 /// showing it can reload.
@@ -58,9 +60,9 @@ const LIST_LIMIT: usize = 20_000;
 const INSTRUCTIONS: &str = "This server is the Hoi4 Modding Supporter desktop app. It edits the Hearts of Iron IV mod \
 that is open in the app window; call `project_info` first to learn which mod that is. Paths given to tools \
 are relative to the mod folder unless absolute. Reading may reach into the game folder by absolute path; \
-writing is confined to the mod folder. Prefer the focus, state, localisation and country tools over \
+writing is confined to the mod folder. Prefer the focus, character, state, localisation and country tools over \
 `write_file`: they change one field and leave the rest of the file byte-for-byte, comments included. \
-Sprite names (`GFX_...`) can be looked up with `search_sprites` before assigning a focus icon.";
+Sprite names (`GFX_...`) can be looked up with `search_sprites` before assigning a focus icon or a portrait.";
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -475,6 +477,39 @@ struct DeleteFocusInput {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct UpdateCharacterInput {
+    /// The character file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the character to change: the key of its block.
+    character_id: String,
+    /// Every editable field. Send the current value for fields to keep; an
+    /// empty string removes a field, and a role missing from its list is
+    /// removed from the character. Roles are matched to the file by
+    /// position within their kind.
+    update: characters::CharacterUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct AddCharacterInput {
+    /// The character file, relative to the mod folder or absolute.
+    path: String,
+    /// The new character. `id` and `name` are what the game needs, plus a
+    /// portrait and at least one role for it to do anything.
+    character: characters::CharacterUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct DeleteCharacterInput {
+    /// The character file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the character to remove.
+    character_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct SearchSpritesInput {
     /// Text the sprite name must contain, case-insensitive, e.g. `generic_army`.
     query: String,
@@ -771,7 +806,76 @@ impl Server {
     }
 
     #[tool(
-        description = "Sprite (GFX_) names defined by the game and the mod whose name contains the query, with the texture each points at. Use it to choose a focus icon.",
+        description = "A character file (common/characters): every character with its name, gender, portraits, country leader roles, advisor roles and commander roles, plus the line each is on and the file's full text as `source`. A character defined through `instance` blocks is flagged `hasInstances` and cannot be updated, only read, deleted or rewritten through `write_file`.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_character_file(
+        &self,
+        Parameters(input): Parameters<PathInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.read_path(&input.path)?;
+        blocking(move || characters::read(&normalise_path(&path))).await
+    }
+
+    #[tool(
+        description = "Rewrites one character's fields in place, leaving everything else in the file exactly as written. A changed `id` renames the block. Returns the file as re-read."
+    )]
+    async fn update_character(
+        &self,
+        Parameters(input): Parameters<UpdateCharacterInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result = blocking(move || {
+            characters::update(&normalise_path(&path), &input.character_id, &input.update)
+        })
+        .await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Appends a new character to the file's `characters` block, creating the block in a file that has none. The country still has to `recruit_character` it in its history file. Returns the file as re-read."
+    )]
+    async fn add_character(
+        &self,
+        Parameters(input): Parameters<AddCharacterInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result =
+            blocking(move || characters::add(&normalise_path(&path), &input.character)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Removes one character from the file. History files that recruit it and ideas that name its advisor token are left for you to fix. Returns the file as re-read.",
+        annotations(destructive_hint = true)
+    )]
+    async fn delete_character(
+        &self,
+        Parameters(input): Parameters<DeleteCharacterInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result =
+            blocking(move || characters::delete(&normalise_path(&path), &input.character_id)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Sprite (GFX_) names defined by the game and the mod whose name contains the query, with the texture each points at. Use it to choose a focus icon or a portrait.",
         annotations(read_only_hint = true)
     )]
     async fn search_sprites(
@@ -1145,6 +1249,10 @@ mod tests {
             Server::update_focus_tool_attr(),
             Server::add_focus_tool_attr(),
             Server::delete_focus_tool_attr(),
+            Server::read_character_file_tool_attr(),
+            Server::update_character_tool_attr(),
+            Server::add_character_tool_attr(),
+            Server::delete_character_tool_attr(),
             Server::search_sprites_tool_attr(),
             Server::sprite_texture_tool_attr(),
             Server::read_localisation_file_tool_attr(),
@@ -1213,5 +1321,13 @@ mod tests {
         assert!(text.contains("relativePositionId"), "{text}");
         assert!(text.contains("mutuallyExclusive"), "{text}");
         assert!(!text.contains("relative_position_id"), "{text}");
+
+        let schema =
+            serde_json::Value::Object((*Server::update_character_tool_attr().input_schema).clone());
+        let text = schema.to_string();
+        assert!(text.contains("characterId"), "{text}");
+        assert!(text.contains("civilianLarge"), "{text}");
+        assert!(text.contains("ideaToken"), "{text}");
+        assert!(!text.contains("idea_token"), "{text}");
     }
 }

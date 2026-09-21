@@ -273,6 +273,10 @@ fn block_change(source: &str, scope: Scope<'_>, key: &str, content: &str) -> Cha
 
     if trimmed.is_empty() {
         return match existing {
+            // A block that is already empty reads back as an empty string,
+            // so writing that string back must not delete it: the game's
+            // files carry many an `available = { }`.
+            Some(pair) if block_body(source, &pair.value).is_empty() => Change::Nothing,
             Some(pair) => Change::Remove(remove_pair(source, pair)),
             None => Change::Nothing,
         };
@@ -717,6 +721,23 @@ mod tests {
             result,
             "state = {\n\tid = 1\n\tadd_core_of = A\n\towner = A\n}\n"
         );
+    }
+
+    #[test]
+    fn an_empty_block_survives_being_set_to_nothing() {
+        let source = "focus_tree = {
+	focus = {
+		id = alpha
+		available = {
+		}
+	}
+}
+";
+        let result = edit_focus(source, |editor| {
+            editor.set_block("available", "");
+        });
+
+        assert_eq!(result, source);
     }
 
     #[test]
