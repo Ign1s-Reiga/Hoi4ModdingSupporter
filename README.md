@@ -19,6 +19,10 @@ static export served inside the Tauri window.
   formatting survive. A code view shows the file's text beside the tree,
   like a Markdown editor's split view: typing re-parses the tree, and
   fields applied from the form land in the text.
+- **Character editor** — the people a country recruits: name, gender and
+  portraits, with country leader, advisor and commander roles edited as
+  cards, beside the file's text in the same split view. Portraits are
+  previewed through the sprite index.
 - **Localisation editor** — edit keys, versions and text in a table. Comments
   and untouched lines are preserved and every save writes the UTF-8 BOM the
   game requires.
@@ -80,6 +84,7 @@ src/                 Next.js frontend (App Router, static export)
   lib/               Typed IPC wrappers, store, shared helpers
 src-tauri/src/       Rust backend
   paradox/           Clausewitz script lexer, parser and span-based editor
+  characters.rs      Character reading and writing
   focus.rs           National focus reading and writing
   localisation.rs    Localisation reading and writing
   project.rs         Descriptor parsing and file scanning

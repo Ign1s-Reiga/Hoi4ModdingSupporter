@@ -78,8 +78,8 @@ the ring buffer.
 
 ## Testing
 
-- `pnpm test:rust` — the parser, editor, focus, localisation, settings, asset,
-  sprite, console and MCP tests. Any change to parsing or writing needs a test
+- `pnpm test:rust` — the parser, editor, focus, character, localisation,
+  settings, asset, sprite, console and MCP tests. Any change to parsing or writing needs a test
   that proves the round trip, including what the save must _not_ disturb.
 - `pnpm typecheck`, `pnpm lint` and `pnpm fmt` before finishing frontend work.
 - `pnpm desktop` runs the app; `pnpm desktop:build` produces a bundle.

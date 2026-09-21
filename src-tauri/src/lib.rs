@@ -1,4 +1,5 @@
 mod assets;
+mod characters;
 mod console;
 mod country_history;
 mod error;
@@ -322,6 +323,61 @@ fn write_localisation_file(
     Ok(saved)
 }
 
+// Characters follow the focus editor's shape: the page holds the text and
+// asks for it to be parsed and edited, writing the file itself.
+
+#[tauri::command]
+fn read_character_file(path: String) -> AppResult<characters::CharacterFile> {
+    characters::read(&path)
+}
+
+#[tauri::command]
+fn parse_character_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+) -> AppResult<characters::CharacterFile> {
+    characters::parse(&path, source, has_bom, encoding)
+}
+
+#[tauri::command]
+fn update_character_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    character_id: String,
+    update: characters::CharacterUpdate,
+) -> AppResult<characters::CharacterFile> {
+    let updated = characters::update_source(&path, &source, &character_id, &update)?;
+    characters::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn add_character_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    character: characters::CharacterUpdate,
+) -> AppResult<characters::CharacterFile> {
+    let updated = characters::add_source(&path, &source, &character)?;
+    characters::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn delete_character_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    character_id: String,
+) -> AppResult<characters::CharacterFile> {
+    let updated = characters::delete_source(&path, &source, &character_id)?;
+    characters::parse(&path, updated, has_bom, encoding)
+}
+
 #[tauri::command]
 fn read_state_file(path: String) -> AppResult<state::StateFile> {
     state::read(&path)
@@ -553,6 +609,11 @@ pub fn run() {
             update_focus,
             add_focus,
             delete_focus,
+            read_character_file,
+            parse_character_source,
+            update_character_source,
+            add_character_source,
+            delete_character_source,
             read_state_file,
             update_state,
             list_country_history,
