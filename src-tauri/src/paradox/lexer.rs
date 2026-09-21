@@ -160,10 +160,20 @@ pub fn tokenize(source: &str) -> Vec<Token> {
 }
 
 /// Returns the byte index just past the end of the bare word starting at `start`.
+///
+/// A bracketed reference such as `[?variable]` or `[Root.GetName]` is one
+/// word: the `?` inside would otherwise be read as an operator.
 fn scan_word(source: &str, start: usize) -> usize {
+    let mut in_brackets = false;
+
     for (offset, character) in source[start..].char_indices() {
-        if is_token_boundary(character) {
-            return start + offset;
+        match character {
+            '[' => in_brackets = true,
+            ']' if in_brackets => in_brackets = false,
+            '\n' => return start + offset,
+            _ if in_brackets => {}
+            _ if is_token_boundary(character) => return start + offset,
+            _ => {}
         }
     }
 
@@ -206,6 +216,28 @@ mod tests {
             vec![&TokenKind::Word, &TokenKind::Operator, &TokenKind::Word]
         );
         assert_eq!(tokens[2].raw, "alpha");
+    }
+
+    #[test]
+    fn keeps_a_bracketed_reference_as_one_word() {
+        let tokens = tokenize("VALUE = [?idea_cost]\nname = [Root.GetName]\n");
+        let words: Vec<&str> = tokens
+            .iter()
+            .filter(|token| token.kind == TokenKind::Word)
+            .map(|token| token.raw.as_str())
+            .collect();
+
+        assert_eq!(
+            words,
+            vec!["VALUE", "[?idea_cost]", "name", "[Root.GetName]"]
+        );
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|token| token.kind == TokenKind::Operator)
+                .count(),
+            2
+        );
     }
 
     #[test]

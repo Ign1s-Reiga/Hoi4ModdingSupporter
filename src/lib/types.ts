@@ -216,6 +216,50 @@ export interface CharacterFile {
 
 export type CharacterUpdate = Omit<Character, 'hasInstances' | 'line'>;
 
+export type EventKind = 'country_event' | 'news_event' | 'state_event' | 'unit_leader_event' | 'operative_leader_event';
+
+export interface EventOption {
+  /** Localisation key of the button text. */
+  name: string;
+  /** Everything else in the option, effects and `ai_chance` alike, as script. */
+  body: string;
+}
+
+/** One event block of an `events/*.txt` file. Named apart from the DOM's Event. */
+export interface GameEvent {
+  kind: EventKind;
+  id: string;
+  /** Each a localisation key, or the body of a triggered `{ text = ... }` block. */
+  titles: string[];
+  descs: string[];
+  picture: string;
+  /** `yes`, `no`, or empty when the file does not say. */
+  fireOnlyOnce: string;
+  isTriggeredOnly: string;
+  hidden: string;
+  major: string;
+  timeoutDays: string;
+  /** Bodies of the script blocks, kept as text. */
+  trigger: string;
+  meanTimeToHappen: string;
+  immediate: string;
+  options: EventOption[];
+  line: number;
+}
+
+export interface EventFile {
+  path: string;
+  /** Every `add_namespace` the file declares, in order. */
+  namespaces: string[];
+  events: GameEvent[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** The text the events were read from; the code view edits it directly. */
+  source: string;
+}
+
+export type EventUpdate = Omit<GameEvent, 'line'>;
+
 /** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
 export interface SpriteIcon {
   name: string;
@@ -351,6 +395,46 @@ export function toCharacterUpdate(character: Character): CharacterUpdate {
     leaders: character.leaders,
     advisors: character.advisors,
     commanders: character.commanders,
+  };
+}
+
+/** The editable fields of an event, with everything blank. */
+export function emptyEventUpdate(kind: EventKind = 'country_event'): EventUpdate {
+  return {
+    kind,
+    id: '',
+    titles: [],
+    descs: [],
+    picture: '',
+    fireOnlyOnce: '',
+    isTriggeredOnly: '',
+    hidden: '',
+    major: '',
+    timeoutDays: '',
+    trigger: '',
+    meanTimeToHappen: '',
+    immediate: '',
+    options: [],
+  };
+}
+
+/** The editable fields of an existing event, without its source position. */
+export function toEventUpdate(event: GameEvent): EventUpdate {
+  return {
+    kind: event.kind,
+    id: event.id,
+    titles: event.titles,
+    descs: event.descs,
+    picture: event.picture,
+    fireOnlyOnce: event.fireOnlyOnce,
+    isTriggeredOnly: event.isTriggeredOnly,
+    hidden: event.hidden,
+    major: event.major,
+    timeoutDays: event.timeoutDays,
+    trigger: event.trigger,
+    meanTimeToHappen: event.meanTimeToHappen,
+    immediate: event.immediate,
+    options: event.options,
   };
 }
 

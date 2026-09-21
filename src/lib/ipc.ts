@@ -16,6 +16,8 @@ import type {
   CountryHistoryInfo,
   CountryHistoryUpdate,
   Encoding,
+  EventFile,
+  EventUpdate,
   FocusFile,
   FocusUpdate,
   LocalisationEntry,
@@ -139,6 +141,26 @@ export const api = {
 
   deleteCharacterSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, characterId: string) =>
     call<CharacterFile>('delete_character_source', { path, source, hasBom, encoding, characterId }),
+
+  readEventFile: (path: string) => call<EventFile>('read_event_file', { path }),
+
+  parseEventSource: (path: string, source: string, hasBom: boolean, encoding: Encoding) =>
+    call<EventFile>('parse_event_source', { path, source, hasBom, encoding }),
+
+  updateEventSource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    eventId: string,
+    update: EventUpdate,
+  ) => call<EventFile>('update_event_source', { path, source, hasBom, encoding, eventId, update }),
+
+  addEventSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, event: EventUpdate) =>
+    call<EventFile>('add_event_source', { path, source, hasBom, encoding, event }),
+
+  deleteEventSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, eventId: string) =>
+    call<EventFile>('delete_event_source', { path, source, hasBom, encoding, eventId }),
 
   updateFocus: (path: string, focusId: string, update: FocusUpdate) =>
     call<FocusFile>('update_focus', { path, focusId, update }),
