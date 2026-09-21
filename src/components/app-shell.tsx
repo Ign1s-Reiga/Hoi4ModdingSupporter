@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  CalendarClock,
   FolderTree,
   Home,
   Images,
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/workspace/scripts', label: 'Scripts', icon: Library, needsProject: true },
   { href: '/workspace/focus', label: 'Focus Trees', icon: FolderTree, needsProject: true },
+  { href: '/workspace/events', label: 'Events', icon: CalendarClock, needsProject: true },
   { href: '/workspace/states', label: 'States', icon: Map, needsProject: true },
   { href: '/workspace/history', label: 'Country Setup', icon: Landmark, needsProject: true },
   { href: '/workspace/characters', label: 'Characters', icon: UsersRound, needsProject: true },

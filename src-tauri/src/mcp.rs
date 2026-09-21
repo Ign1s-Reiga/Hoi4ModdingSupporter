@@ -42,7 +42,7 @@ use crate::console::{self, Source};
 use crate::error::{AppError, AppResult};
 use crate::project::{self, normalise_path, ModProject};
 use crate::{
-    characters, country_history, focus, localisation, settings, sprites, state, text_file,
+    characters, country_history, events, focus, localisation, settings, sprites, state, text_file,
 };
 
 /// Event carrying the path of a file an MCP client changed, so an editor
@@ -60,7 +60,7 @@ const LIST_LIMIT: usize = 20_000;
 const INSTRUCTIONS: &str = "This server is the Hoi4 Modding Supporter desktop app. It edits the Hearts of Iron IV mod \
 that is open in the app window; call `project_info` first to learn which mod that is. Paths given to tools \
 are relative to the mod folder unless absolute. Reading may reach into the game folder by absolute path; \
-writing is confined to the mod folder. Prefer the focus, character, state, localisation and country tools over \
+writing is confined to the mod folder. Prefer the focus, event, character, state, localisation and country tools over \
 `write_file`: they change one field and leave the rest of the file byte-for-byte, comments included. \
 Sprite names (`GFX_...`) can be looked up with `search_sprites` before assigning a focus icon or a portrait.";
 
@@ -510,6 +510,40 @@ struct DeleteCharacterInput {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct UpdateEventInput {
+    /// The event file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the event to change, e.g. `germany.1`.
+    event_id: String,
+    /// Every editable field. Send the current value for fields to keep; an
+    /// empty string removes a field, and a title, description or option
+    /// missing from its list is removed. Options are matched by position;
+    /// one whose `body` changed is written out again from that text.
+    update: events::EventUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct AddEventInput {
+    /// The event file, relative to the mod folder or absolute.
+    path: String,
+    /// The new event. `kind` is one of country_event, news_event,
+    /// state_event, unit_leader_event or operative_leader_event; `id` must
+    /// use a namespace the file declares with `add_namespace`.
+    event: events::EventUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct DeleteEventInput {
+    /// The event file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the event to remove.
+    event_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct SearchSpritesInput {
     /// Text the sprite name must contain, case-insensitive, e.g. `generic_army`.
     query: String,
@@ -875,7 +909,75 @@ impl Server {
     }
 
     #[tool(
-        description = "Sprite (GFX_) names defined by the game and the mod whose name contains the query, with the texture each points at. Use it to choose a focus icon or a portrait.",
+        description = "An event file (events/): its namespaces and every event with kind, id, titles, descriptions (a localisation key each, or the body of a triggered `{ text = ... }` block), picture, flags, trigger, mean_time_to_happen, immediate and options (name plus the effects as script text), plus the line each is on and the file's full text as `source`.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_event_file(
+        &self,
+        Parameters(input): Parameters<PathInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.read_path(&input.path)?;
+        blocking(move || events::read(&normalise_path(&path))).await
+    }
+
+    #[tool(
+        description = "Rewrites one event's fields in place, leaving everything else in the file exactly as written. Refused when two events share the id. Returns the file as re-read."
+    )]
+    async fn update_event(
+        &self,
+        Parameters(input): Parameters<UpdateEventInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result = blocking(move || {
+            events::update(&normalise_path(&path), &input.event_id, &input.update)
+        })
+        .await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Appends a new event at the end of the file. Its title and description keys still need localisation entries. Returns the file as re-read."
+    )]
+    async fn add_event(
+        &self,
+        Parameters(input): Parameters<AddEventInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result = blocking(move || events::add(&normalise_path(&path), &input.event)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Removes one event from the file, with the blank line before it. Scripts that fire it are left for you to fix. Returns the file as re-read.",
+        annotations(destructive_hint = true)
+    )]
+    async fn delete_event(
+        &self,
+        Parameters(input): Parameters<DeleteEventInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result =
+            blocking(move || events::delete(&normalise_path(&path), &input.event_id)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Sprite (GFX_) names defined by the game and the mod whose name contains the query, with the texture each points at. Use it to choose a focus icon, an event picture or a portrait.",
         annotations(read_only_hint = true)
     )]
     async fn search_sprites(
@@ -1253,6 +1355,10 @@ mod tests {
             Server::update_character_tool_attr(),
             Server::add_character_tool_attr(),
             Server::delete_character_tool_attr(),
+            Server::read_event_file_tool_attr(),
+            Server::update_event_tool_attr(),
+            Server::add_event_tool_attr(),
+            Server::delete_event_tool_attr(),
             Server::search_sprites_tool_attr(),
             Server::sprite_texture_tool_attr(),
             Server::read_localisation_file_tool_attr(),
@@ -1329,5 +1435,12 @@ mod tests {
         assert!(text.contains("civilianLarge"), "{text}");
         assert!(text.contains("ideaToken"), "{text}");
         assert!(!text.contains("idea_token"), "{text}");
+
+        let schema =
+            serde_json::Value::Object((*Server::update_event_tool_attr().input_schema).clone());
+        let text = schema.to_string();
+        assert!(text.contains("eventId"), "{text}");
+        assert!(text.contains("meanTimeToHappen"), "{text}");
+        assert!(!text.contains("mean_time_to_happen"), "{text}");
     }
 }
