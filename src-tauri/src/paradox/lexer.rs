@@ -165,19 +165,34 @@ pub fn tokenize(source: &str) -> Vec<Token> {
 /// word: the `?` inside would otherwise be read as an operator.
 fn scan_word(source: &str, start: usize) -> usize {
     let mut in_brackets = false;
+    let mut end = source.len();
 
     for (offset, character) in source[start..].char_indices() {
-        match character {
-            '[' => in_brackets = true,
-            ']' if in_brackets => in_brackets = false,
-            '\n' => return start + offset,
-            _ if in_brackets => {}
-            _ if is_token_boundary(character) => return start + offset,
-            _ => {}
+        let boundary = match character {
+            '[' => {
+                in_brackets = true;
+                false
+            }
+            ']' if in_brackets => {
+                in_brackets = false;
+                false
+            }
+            // A brace, a quote or a line end closes the word whatever the
+            // bracket state: a reference never holds one, and a stray `[`
+            // must not swallow the brace that ends the block.
+            '{' | '}' | '"' | '\n' => true,
+            _ if in_brackets => false,
+            _ => is_token_boundary(character),
+        };
+        if boundary {
+            end = start + offset;
+            break;
         }
     }
 
-    source.len()
+    // Whitespace before a brace that ended an unclosed reference is not
+    // part of the word.
+    source[start..end].trim_end().len() + start
 }
 
 /// Returns the byte index just past the closing quote of the string starting at
@@ -238,6 +253,15 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn a_stray_bracket_does_not_swallow_the_closing_brace() {
+        let tokens = tokenize("a = { name = [Root.GetName }\n");
+        let kinds: Vec<&TokenKind> = tokens.iter().map(|token| &token.kind).collect();
+
+        assert_eq!(kinds.last(), Some(&&TokenKind::CloseBrace));
+        assert_eq!(tokens[5].raw, "[Root.GetName");
     }
 
     #[test]
