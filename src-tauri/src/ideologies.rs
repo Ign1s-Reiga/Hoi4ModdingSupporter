@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 use crate::paradox::edit::{
-    apply_edits, block_body, child_indent, dedent, detect_newline, format_block, indent_at,
-    insert_lines, remove_pair, BlockEditor, TextEdit,
+    apply_edits, block_body, child_indent, detect_newline, format_block, format_lines, indent_at,
+    insert_lines, remove_pair, words_of, BlockEditor, TextEdit,
 };
 use crate::paradox::lexer::{needs_quotes, quote};
-use crate::paradox::{self, Block, Document, Item, Items, Pair, Span, Value};
+use crate::paradox::{self, Block, Document, Items, Pair, Span};
 use crate::text_file;
 
 /// The AI behaviours an ideology can adopt, as the file's `ai_<x> = yes`.
@@ -221,18 +221,6 @@ fn read_ideology(source: &str, id: &str, block: &Block, start: usize) -> Ideolog
         faction_modifiers: text("faction_modifiers"),
         line: paradox::line_of(source, start),
     }
-}
-
-/// The bare values of a list such as `dynamic_faction_names = { "A" "B" }`.
-fn words_of(block: &Block) -> Vec<String> {
-    block
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            Item::Value(Value::Scalar(scalar)) => Some(scalar.value()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// Rewrites one ideology in place, matched by its current id.
@@ -623,25 +611,6 @@ fn set_rules(editor: &mut BlockEditor<'_>, rules: &[Rule]) {
     for edit in inner.finish() {
         editor.edit(edit);
     }
-}
-
-/// A block with its braces on lines of their own however short the body,
-/// as every ideology and its list blocks are laid out.
-fn format_lines(content: &str, indent: &str, newline: &str) -> String {
-    let inner = format!("{indent}\t");
-    let body = dedent(content.trim())
-        .iter()
-        .map(|line| {
-            if line.is_empty() {
-                String::new()
-            } else {
-                format!("{inner}{line}")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(newline);
-
-    format!("{{{newline}{body}{newline}{indent}}}")
 }
 
 // The renderers produce a block body with `\n` line breaks and no leading

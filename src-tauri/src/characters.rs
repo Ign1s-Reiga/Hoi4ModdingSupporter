@@ -13,11 +13,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 use crate::paradox::edit::{
-    apply_edits, block_body, child_indent, dedent, detect_newline, format_block, indent_at,
-    insert_lines, remove_pair, BlockEditor, TextEdit,
+    apply_edits, block_body, child_indent, detect_newline, format_block, format_lines, indent_at,
+    insert_lines, normalise_words, remove_pair, render_words, words_of, BlockEditor, TextEdit,
 };
 use crate::paradox::lexer::quote;
-use crate::paradox::{self, Block, Document, Item, Items, Pair, Span, Value};
+use crate::paradox::{self, Block, Document, Items, Pair, Span};
 use crate::text_file;
 
 /// The military roles, as the file spells them.
@@ -290,17 +290,6 @@ fn read_character(source: &str, id: &str, block: &Block, start: usize) -> Charac
 /// The bare words of a list such as `traits = { a b }`.
 fn read_words(block: &Block, key: &str) -> Vec<String> {
     block.block(key).map(words_of).unwrap_or_default()
-}
-
-fn words_of(block: &Block) -> Vec<String> {
-    block
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            Item::Value(Value::Scalar(scalar)) => Some(scalar.value()),
-            _ => None,
-        })
-        .collect()
 }
 
 fn read_block(source: &str, block: &Block, key: &str) -> String {
@@ -642,7 +631,7 @@ fn set_roles<T>(
 
 fn edit_leader(editor: &mut BlockEditor<'_>, leader: &CountryLeader) {
     editor.set_scalar("ideology", &leader.ideology);
-    set_words(editor, "traits", &leader.traits);
+    editor.set_words("traits", &leader.traits);
     set_quoted(editor, "expire", &leader.expire);
     editor.set_scalar("desc", &leader.desc);
 }
@@ -654,7 +643,7 @@ fn edit_advisor(editor: &mut BlockEditor<'_>, advisor: &Advisor) {
     editor.set_scalar("cost", &advisor.cost);
     editor.set_scalar("removal_cost", &advisor.removal_cost);
     editor.set_scalar("can_be_fired", &advisor.can_be_fired);
-    set_words(editor, "traits", &advisor.traits);
+    editor.set_words("traits", &advisor.traits);
     for (key, value) in ADVISOR_BLOCKS.iter().zip([
         &advisor.allowed,
         &advisor.available,
@@ -670,7 +659,7 @@ fn edit_commander(editor: &mut BlockEditor<'_>, commander: &Commander) {
         editor.set_scalar(key, value);
     }
     editor.set_scalar("legacy_id", &commander.legacy_id);
-    set_words(editor, "traits", &commander.traits);
+    editor.set_words("traits", &commander.traits);
 }
 
 /// The skill fields a role of this kind carries. A navy leader has no
@@ -703,45 +692,6 @@ fn commander_skills(commander: &Commander) -> Vec<(&'static str, &str)> {
     ]
 }
 
-/// Sets a bare word list such as `traits = { a b }`. A list already
-/// holding exactly these words is left alone, whatever its layout.
-fn set_words(editor: &mut BlockEditor<'_>, key: &str, values: &[String]) {
-    let wanted = normalise_words(values);
-    let source = editor.source();
-    let newline = detect_newline(source);
-
-    let Some(pair) = editor.find_all(key).into_iter().next() else {
-        if !wanted.is_empty() {
-            let indent = editor
-                .block()
-                .map(|block| child_indent(source, block))
-                .unwrap_or_default();
-            editor.add_line(format!(
-                "{key} = {}",
-                format_block(&render_words(&wanted), &indent, newline)
-            ));
-        }
-        return;
-    };
-
-    if pair
-        .value
-        .as_block()
-        .is_some_and(|block| words_of(block) == wanted)
-    {
-        return;
-    }
-
-    // A cleared list stays as `{ }` rather than vanishing: the game's own
-    // generic commanders carry an empty `traits = { }`, and the key is
-    // what a reader looks for.
-    let indent = indent_at(source, pair.span.start);
-    editor.edit(TextEdit::new(
-        pair.value.span(),
-        format_block(&render_words(&wanted), &indent, newline),
-    ));
-}
-
 /// Sets a value the game's own files always quote, such as an `expire` date.
 fn set_quoted(editor: &mut BlockEditor<'_>, key: &str, value: &str) {
     let trimmed = value.trim();
@@ -764,24 +714,6 @@ fn set_quoted(editor: &mut BlockEditor<'_>, key: &str, value: &str) {
     }
 }
 
-fn normalise_words(values: &[String]) -> Vec<String> {
-    values
-        .iter()
-        .flat_map(|value| value.split_whitespace())
-        .map(str::to_string)
-        .collect()
-}
-
-/// Short lists stay on one line; long ones get a word per line.
-fn render_words(words: &[String]) -> String {
-    let joined = words.join(" ");
-    if joined.len() <= 60 {
-        joined
-    } else {
-        words.join("\n")
-    }
-}
-
 fn render_portrait_group(large: &str, small: &str) -> String {
     [("large", large), ("small", small)]
         .into_iter()
@@ -801,27 +733,6 @@ fn render_portraits(portraits: &Portraits) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// A block with its braces on lines of their own however short the body,
-/// which is how every character, role and portrait block in the game's own
-/// files is laid out. `format_block` would fold a one-field role onto one
-/// line.
-fn format_lines(content: &str, indent: &str, newline: &str) -> String {
-    let inner = format!("{indent}\t");
-    let body = dedent(content.trim())
-        .iter()
-        .map(|line| {
-            if line.is_empty() {
-                String::new()
-            } else {
-                format!("{inner}{line}")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(newline);
-
-    format!("{{{newline}{body}{newline}{indent}}}")
 }
 
 // The renderers below produce a block body with `\n` line breaks and no
