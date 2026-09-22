@@ -84,7 +84,7 @@ the ring buffer.
 
 ## Testing
 
-- `pnpm test:rust` — the parser, editor, focus, event, character,
+- `pnpm test:rust` — the parser, editor, focus, event, character, ideology,
   localisation, settings, asset, sprite, console and MCP tests. Any change to parsing or writing needs a test
   that proves the round trip, including what the save must _not_ disturb.
 - `pnpm typecheck`, `pnpm lint` and `pnpm fmt` before finishing frontend work.
@@ -115,8 +115,8 @@ Linting is [oxlint](https://oxc.rs) and formatting is oxfmt, configured in
 
 ## Want to do
 
-- Event, history and ideology editors with the same form-plus-source approach
-  as the focus editor.
+- A history editor with the same form-plus-source approach as the focus,
+  event, character and ideology editors.
 - Flag and focus icon importer that writes the `.dds`/`.tga` and the interface
   entries together.
 - Cross-file validation: focuses referencing ids that do not exist, localisation

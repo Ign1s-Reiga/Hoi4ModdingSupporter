@@ -24,6 +24,9 @@ static export served inside the Tauri window.
   effects of an option stay script. Events sharing an id are flagged. A
   preview draws the window the game would, with the text behind the keys
   in any language the mod writes.
+- **Ideology editor** — each ideology group's colour, sub-ideologies, faction
+  names, rules, modifiers and AI behaviour, edited beside the file's text,
+  with a check of the localisation keys the game will look up for it.
 - **Character editor** — the people a country recruits: name, gender and
   portraits, with country leader, advisor and commander roles edited as
   cards, beside the file's text in the same split view. Portraits are
@@ -92,6 +95,7 @@ src-tauri/src/       Rust backend
   characters.rs      Character reading and writing
   events.rs          Event reading and writing
   focus.rs           National focus reading and writing
+  ideologies.rs      Ideology reading and writing
   localisation.rs    Localisation reading and writing
   project.rs         Descriptor parsing and file scanning
 ```

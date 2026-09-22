@@ -20,6 +20,8 @@ import type {
   EventUpdate,
   FocusFile,
   FocusUpdate,
+  IdeologyFile,
+  IdeologyUpdate,
   LocalisationEntry,
   LocalisationFile,
   LocalisationFileInfo,
@@ -161,6 +163,26 @@ export const api = {
 
   deleteEventSource: (path: string, source: string, hasBom: boolean, encoding: Encoding, eventId: string) =>
     call<EventFile>('delete_event_source', { path, source, hasBom, encoding, eventId }),
+
+  readIdeologyFile: (path: string) => call<IdeologyFile>('read_ideology_file', { path }),
+
+  parseIdeologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding) =>
+    call<IdeologyFile>('parse_ideology_source', { path, source, hasBom, encoding }),
+
+  updateIdeologySource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    ideologyId: string,
+    update: IdeologyUpdate,
+  ) => call<IdeologyFile>('update_ideology_source', { path, source, hasBom, encoding, ideologyId, update }),
+
+  addIdeologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding, ideology: IdeologyUpdate) =>
+    call<IdeologyFile>('add_ideology_source', { path, source, hasBom, encoding, ideology }),
+
+  deleteIdeologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding, ideologyId: string) =>
+    call<IdeologyFile>('delete_ideology_source', { path, source, hasBom, encoding, ideologyId }),
 
   updateFocus: (path: string, focusId: string, update: FocusUpdate) =>
     call<FocusFile>('update_focus', { path, focusId, update }),

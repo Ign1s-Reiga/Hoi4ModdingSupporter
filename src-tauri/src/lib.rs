@@ -5,6 +5,7 @@ mod country_history;
 mod error;
 mod events;
 mod focus;
+mod ideologies;
 mod localisation;
 mod map;
 mod mcp;
@@ -459,6 +460,58 @@ fn delete_event_source(
 }
 
 #[tauri::command]
+fn read_ideology_file(path: String) -> AppResult<ideologies::IdeologyFile> {
+    ideologies::read(&path)
+}
+
+#[tauri::command]
+fn parse_ideology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+) -> AppResult<ideologies::IdeologyFile> {
+    ideologies::parse(&path, source, has_bom, encoding)
+}
+
+#[tauri::command]
+fn update_ideology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    ideology_id: String,
+    update: ideologies::IdeologyUpdate,
+) -> AppResult<ideologies::IdeologyFile> {
+    let updated = ideologies::update_source(&path, &source, &ideology_id, &update)?;
+    ideologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn add_ideology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    ideology: ideologies::IdeologyUpdate,
+) -> AppResult<ideologies::IdeologyFile> {
+    let updated = ideologies::add_source(&path, &source, &ideology)?;
+    ideologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn delete_ideology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    ideology_id: String,
+) -> AppResult<ideologies::IdeologyFile> {
+    let updated = ideologies::delete_source(&path, &source, &ideology_id)?;
+    ideologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
 fn read_state_file(path: String) -> AppResult<state::StateFile> {
     state::read(&path)
 }
@@ -729,6 +782,11 @@ pub fn run() {
             update_event_source,
             add_event_source,
             delete_event_source,
+            read_ideology_file,
+            parse_ideology_source,
+            update_ideology_source,
+            add_ideology_source,
+            delete_ideology_source,
             read_state_file,
             update_state,
             list_country_history,
