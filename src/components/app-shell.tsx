@@ -10,6 +10,7 @@ import {
   Home,
   Images,
   Landmark,
+  Scale,
   Languages,
   Library,
   Map,
@@ -45,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/workspace/states', label: 'States', icon: Map, needsProject: true },
   { href: '/workspace/history', label: 'Country Setup', icon: Landmark, needsProject: true },
   { href: '/workspace/characters', label: 'Characters', icon: UsersRound, needsProject: true },
+  { href: '/workspace/ideologies', label: 'Ideologies', icon: Scale, needsProject: true },
   { href: '/workspace/localisation', label: 'Localisation', icon: Languages, needsProject: true },
   { href: '/workspace/assets', label: 'Assets', icon: Images, needsProject: true },
 ];

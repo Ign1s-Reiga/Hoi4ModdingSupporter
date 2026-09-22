@@ -260,6 +260,53 @@ export interface EventFile {
 
 export type EventUpdate = Omit<GameEvent, 'line'>;
 
+export interface SubIdeology {
+  id: string;
+  /** `yes`, `no`, or empty when the file does not say (which means yes). */
+  canBeRandomlySelected: string;
+}
+
+export interface IdeologyRule {
+  key: string;
+  value: string;
+}
+
+export type AiBehaviour = 'democratic' | 'communist' | 'fascist' | 'neutral';
+
+/** One `id = { }` block of a `common/ideologies` file. */
+export interface Ideology {
+  id: string;
+  /** The body of `color = { }`: three numbers, 0-255 or 0-1. */
+  color: string;
+  types: SubIdeology[];
+  /** Localisation keys of the faction names. */
+  dynamicFactionNames: string[];
+  warImpactOnWorldTension: string;
+  factionImpactOnWorldTension: string;
+  canHostGovernmentInExile: string;
+  canBeBoosted: string;
+  canCollaborate: string;
+  /** Which `ai_<x> = yes` the file sets, or empty. */
+  aiBehaviour: AiBehaviour | '';
+  aiIdeologyWantedUnitsFactor: string;
+  rules: IdeologyRule[];
+  /** Bodies of the modifier blocks, kept as text. */
+  modifiers: string;
+  factionModifiers: string;
+  line: number;
+}
+
+export interface IdeologyFile {
+  path: string;
+  ideologies: Ideology[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** The text the ideologies were read from; the code view edits it directly. */
+  source: string;
+}
+
+export type IdeologyUpdate = Omit<Ideology, 'line'>;
+
 /** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
 export interface SpriteIcon {
   name: string;
@@ -435,6 +482,46 @@ export function toEventUpdate(event: GameEvent): EventUpdate {
     meanTimeToHappen: event.meanTimeToHappen,
     immediate: event.immediate,
     options: event.options,
+  };
+}
+
+/** The editable fields of an ideology, with everything blank. */
+export function emptyIdeologyUpdate(): IdeologyUpdate {
+  return {
+    id: '',
+    color: '',
+    types: [],
+    dynamicFactionNames: [],
+    warImpactOnWorldTension: '',
+    factionImpactOnWorldTension: '',
+    canHostGovernmentInExile: '',
+    canBeBoosted: '',
+    canCollaborate: '',
+    aiBehaviour: '',
+    aiIdeologyWantedUnitsFactor: '',
+    rules: [],
+    modifiers: '',
+    factionModifiers: '',
+  };
+}
+
+/** The editable fields of an existing ideology, without its source position. */
+export function toIdeologyUpdate(ideology: Ideology): IdeologyUpdate {
+  return {
+    id: ideology.id,
+    color: ideology.color,
+    types: ideology.types,
+    dynamicFactionNames: ideology.dynamicFactionNames,
+    warImpactOnWorldTension: ideology.warImpactOnWorldTension,
+    factionImpactOnWorldTension: ideology.factionImpactOnWorldTension,
+    canHostGovernmentInExile: ideology.canHostGovernmentInExile,
+    canBeBoosted: ideology.canBeBoosted,
+    canCollaborate: ideology.canCollaborate,
+    aiBehaviour: ideology.aiBehaviour,
+    aiIdeologyWantedUnitsFactor: ideology.aiIdeologyWantedUnitsFactor,
+    rules: ideology.rules,
+    modifiers: ideology.modifiers,
+    factionModifiers: ideology.factionModifiers,
   };
 }
 
