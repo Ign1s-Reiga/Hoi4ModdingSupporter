@@ -14,6 +14,7 @@ mod project;
 mod settings;
 mod sprites;
 mod state;
+mod technologies;
 mod text_file;
 
 use std::sync::Mutex;
@@ -512,6 +513,58 @@ fn delete_ideology_source(
 }
 
 #[tauri::command]
+fn read_technology_file(path: String) -> AppResult<technologies::TechnologyFile> {
+    technologies::read(&path)
+}
+
+#[tauri::command]
+fn parse_technology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+) -> AppResult<technologies::TechnologyFile> {
+    technologies::parse(&path, source, has_bom, encoding)
+}
+
+#[tauri::command]
+fn update_technology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    tech_id: String,
+    update: technologies::TechnologyUpdate,
+) -> AppResult<technologies::TechnologyFile> {
+    let updated = technologies::update_source(&path, &source, &tech_id, &update)?;
+    technologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn add_technology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    technology: technologies::TechnologyUpdate,
+) -> AppResult<technologies::TechnologyFile> {
+    let updated = technologies::add_source(&path, &source, &technology)?;
+    technologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
+fn delete_technology_source(
+    path: String,
+    source: String,
+    has_bom: bool,
+    encoding: text_file::Encoding,
+    tech_id: String,
+) -> AppResult<technologies::TechnologyFile> {
+    let updated = technologies::delete_source(&path, &source, &tech_id)?;
+    technologies::parse(&path, updated, has_bom, encoding)
+}
+
+#[tauri::command]
 fn read_state_file(path: String) -> AppResult<state::StateFile> {
     state::read(&path)
 }
@@ -787,6 +840,11 @@ pub fn run() {
             update_ideology_source,
             add_ideology_source,
             delete_ideology_source,
+            read_technology_file,
+            parse_technology_source,
+            update_technology_source,
+            add_technology_source,
+            delete_technology_source,
             read_state_file,
             update_state,
             list_country_history,

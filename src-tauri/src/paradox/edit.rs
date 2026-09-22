@@ -4,7 +4,7 @@
 //! so offsets gathered during parsing stay valid until the very last one lands.
 
 use super::lexer::{needs_quotes, quote};
-use super::parser::{Block, Document, Items, Pair, Value};
+use super::parser::{Block, Document, Item, Items, Pair, Value};
 use super::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -411,6 +411,42 @@ impl<'a> BlockEditor<'a> {
         self
     }
 
+    /// Sets a bare word list such as `traits = { a b }`. A list already
+    /// holding exactly these words is left alone, whatever its layout; a
+    /// cleared one stays as `{ }` rather than vanishing, since the game's
+    /// own files carry empty lists and the key is what a reader looks for.
+    pub fn set_words(&mut self, key: &str, values: &[String]) -> &mut Self {
+        let wanted = normalise_words(values);
+        let source = self.source;
+        let newline = detect_newline(source);
+
+        let Some(pair) = self.scope.find(key) else {
+            if !wanted.is_empty() {
+                let indent = self.scope.child_indent(source);
+                self.additions.push(format!(
+                    "{key} = {}",
+                    format_block(&render_words(&wanted), &indent, newline)
+                ));
+            }
+            return self;
+        };
+
+        if pair
+            .value
+            .as_block()
+            .is_some_and(|block| words_of(block) == wanted)
+        {
+            return self;
+        }
+
+        let indent = indent_at(source, pair.span.start);
+        self.edits.push(TextEdit::new(
+            pair.value.span(),
+            format_block(&render_words(&wanted), &indent, newline),
+        ));
+        self
+    }
+
     pub fn edit(&mut self, edit: TextEdit) -> &mut Self {
         self.edits.push(edit);
         self
@@ -514,6 +550,92 @@ pub fn insert_lines(source: &str, block: &Block, lines: &[String], removed: &[Sp
         Span::new(trailing_start, insert_at),
         format!("{body}{newline}{closing_indent}"),
     )
+}
+
+/// The bare values of a list such as `traits = { a b }` or
+/// `dynamic_faction_names = { "A" "B" }`, unquoted.
+pub fn words_of(block: &Block) -> Vec<String> {
+    block
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Value(Value::Scalar(scalar)) => Some(scalar.value()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Splits what a form sends for a word list into its words.
+pub fn normalise_words(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .flat_map(|value| value.split_whitespace())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Short lists stay on one line; long ones get a word per line.
+pub fn render_words(words: &[String]) -> String {
+    let joined = words.join(" ");
+    if joined.len() <= 60 {
+        joined
+    } else {
+        words.join("\n")
+    }
+}
+
+/// A block with its braces on lines of their own however short the body,
+/// which is how the game's files lay out a focus, a character, an event or
+/// a technology; `format_block` would fold a one-field block onto one line.
+pub fn format_lines(content: &str, indent: &str, newline: &str) -> String {
+    let inner = format!("{indent}\t");
+    let body = dedent(content.trim())
+        .iter()
+        .map(|line| {
+            if line.is_empty() {
+                String::new()
+            } else {
+                format!("{inner}{line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(newline);
+
+    format!("{{{newline}{body}{newline}{indent}}}")
+}
+
+/// The body of `block` with every assignment of the given keys cut out,
+/// dedented: what an option holds besides its name, or a technology
+/// besides the fields a form edits.
+pub fn body_without(source: &str, block: &Block, keys: &[&str]) -> String {
+    let mut cut: Vec<Span> = block
+        .pairs()
+        .into_iter()
+        .filter(|pair| keys.iter().any(|key| pair.key.eq_ignore_ascii_case(key)))
+        .map(|pair| {
+            remove_pair(source, pair)
+                .into_iter()
+                .next()
+                .map(|edit| edit.span)
+                .unwrap_or(pair.span)
+        })
+        .collect();
+    cut.sort_by_key(|span| span.start);
+
+    let mut kept = String::new();
+    let mut at = block.inner.start;
+    for span in cut {
+        if span.start > at {
+            kept.push_str(&source[at..span.start]);
+        }
+        at = at.max(span.end);
+    }
+    kept.push_str(&source[at..block.inner.end]);
+
+    dedent(kept.trim_matches(|character| character == '\n' || character == '\r'))
+        .join("\n")
+        .trim()
+        .to_string()
 }
 
 /// Renders `content` as a brace block indented relative to `indent`.

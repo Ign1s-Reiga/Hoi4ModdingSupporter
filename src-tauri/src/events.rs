@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 use crate::paradox::edit::{
-    apply_edits, block_body, child_indent, dedent, detect_newline, format_block, indent_at,
-    line_end, line_start, remove_pair, BlockEditor, TextEdit,
+    apply_edits, block_body, body_without, child_indent, dedent, detect_newline, format_block,
+    format_lines, indent_at, line_end, line_start, remove_pair, BlockEditor, TextEdit,
 };
 use crate::paradox::lexer::{needs_quotes, quote};
 use crate::paradox::{self, Block, Document, Items, Pair, Span};
@@ -185,7 +185,7 @@ fn read_event(source: &str, kind: &str, block: &Block, start: usize) -> Event {
         .filter_map(|pair| pair.value.as_block())
         .map(|option| EventOption {
             name: option.scalar("name").unwrap_or_default(),
-            body: body_without(source, option, "name"),
+            body: body_without(source, option, &["name"]),
         })
         .collect();
 
@@ -206,42 +206,6 @@ fn read_event(source: &str, kind: &str, block: &Block, start: usize) -> Event {
         options,
         line: paradox::line_of(source, start),
     }
-}
-
-/// The body of `block` with every `key` assignment cut out, dedented: what
-/// an option holds besides its name.
-fn body_without(source: &str, block: &Block, key: &str) -> String {
-    let mut cut: Vec<Span> = block
-        .find_all(key)
-        .into_iter()
-        .map(|pair| owned_span(source, pair))
-        .collect();
-    cut.sort_by_key(|span| span.start);
-
-    let mut kept = String::new();
-    let mut at = block.inner.start;
-    for span in cut {
-        if span.start > at {
-            kept.push_str(&source[at..span.start]);
-        }
-        at = at.max(span.end);
-    }
-    kept.push_str(&source[at..block.inner.end]);
-
-    dedent(kept.trim_matches(|character| character == '\n' || character == '\r'))
-        .join("\n")
-        .trim()
-        .to_string()
-}
-
-/// The span a removal of `pair` covers: its whole line when it sits alone
-/// on one, otherwise just the assignment.
-fn owned_span(source: &str, pair: &Pair) -> Span {
-    remove_pair(source, pair)
-        .into_iter()
-        .next()
-        .map(|edit| edit.span)
-        .unwrap_or(pair.span)
 }
 
 /// Rewrites one event in place, matched by its current id.
@@ -509,7 +473,7 @@ fn set_options(editor: &mut BlockEditor<'_>, options: &[EventOption]) {
     for (option, pair) in options.iter().zip(existing.iter()) {
         let indent = indent_at(source, pair.span.start);
         match pair.value.as_block() {
-            Some(block) if body_without(source, block, "name") == option.body.trim() => {
+            Some(block) if body_without(source, block, &["name"]) == option.body.trim() => {
                 let mut inner = BlockEditor::new(source, block);
                 inner.set_scalar("name", &option.name);
                 for edit in inner.finish() {
@@ -539,25 +503,6 @@ fn set_options(editor: &mut BlockEditor<'_>, options: &[EventOption]) {
             format_lines(&render_option(option), &indent, newline)
         ));
     }
-}
-
-/// A block with its braces on lines of their own however short the body,
-/// as every event and option block is laid out.
-fn format_lines(content: &str, indent: &str, newline: &str) -> String {
-    let inner = format!("{indent}\t");
-    let body = dedent(content.trim())
-        .iter()
-        .map(|line| {
-            if line.is_empty() {
-                String::new()
-            } else {
-                format!("{inner}{line}")
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(newline);
-
-    format!("{{{newline}{body}{newline}{indent}}}")
 }
 
 // The renderers produce a block body with `\n` line breaks and no leading

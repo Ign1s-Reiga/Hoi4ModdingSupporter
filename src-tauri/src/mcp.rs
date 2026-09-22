@@ -43,7 +43,7 @@ use crate::error::{AppError, AppResult};
 use crate::project::{self, normalise_path, ModProject};
 use crate::{
     characters, country_history, events, focus, ideologies, localisation, settings, sprites, state,
-    text_file,
+    technologies, text_file,
 };
 
 /// Event carrying the path of a file an MCP client changed, so an editor
@@ -61,7 +61,7 @@ const LIST_LIMIT: usize = 20_000;
 const INSTRUCTIONS: &str = "This server is the Hoi4 Modding Supporter desktop app. It edits the Hearts of Iron IV mod \
 that is open in the app window; call `project_info` first to learn which mod that is. Paths given to tools \
 are relative to the mod folder unless absolute. Reading may reach into the game folder by absolute path; \
-writing is confined to the mod folder. Prefer the focus, event, character, ideology, state, localisation and country tools over \
+writing is confined to the mod folder. Prefer the focus, event, character, ideology, technology, state, localisation and country tools over \
 `write_file`: they change one field and leave the rest of the file byte-for-byte, comments included. \
 Sprite names (`GFX_...`) can be looked up with `search_sprites` before assigning a focus icon or a portrait.";
 
@@ -579,6 +579,40 @@ struct DeleteIdeologyInput {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct UpdateTechnologyInput {
+    /// The technology file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the technology to change: the key of its block.
+    tech_id: String,
+    /// Every editable field. Send the current value for fields to keep; an
+    /// empty string removes a field, and a folder, path or list entry left
+    /// out is removed. Folders are matched by name and paths by the
+    /// technology they lead to. The modifiers a technology grants are not
+    /// here: change those with `write_file`.
+    update: technologies::TechnologyUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct AddTechnologyInput {
+    /// The technology file, relative to the mod folder or absolute.
+    path: String,
+    /// The new technology. `id`, `researchCost`, a folder with a position
+    /// and a category are what the game needs to show it.
+    technology: technologies::TechnologyUpdate,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct DeleteTechnologyInput {
+    /// The technology file, relative to the mod folder or absolute.
+    path: String,
+    /// Id of the technology to remove.
+    tech_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct SearchSpritesInput {
     /// Text the sprite name must contain, case-insensitive, e.g. `generic_army`.
     query: String,
@@ -1081,6 +1115,75 @@ impl Server {
     }
 
     #[tool(
+        description = "A technology file (common/technologies): its `@variable` rows and every technology with cost, start year, doctrine and XP fields, the folders it sits on with a position each (as written, `@1936` included), the paths it leads to, its word lists (categories, xor, sub-technologies, enabled equipment, modules and subunits), its script blocks, everything else it grants as `effects` text, plus the line each is on and the file's full text as `source`.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_technology_file(
+        &self,
+        Parameters(input): Parameters<PathInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.read_path(&input.path)?;
+        blocking(move || technologies::read(&normalise_path(&path))).await
+    }
+
+    #[tool(
+        description = "Rewrites one technology's fields in place, leaving everything else in the block — the modifiers it grants included — exactly as written. A changed `id` renames the block. Returns the file as re-read."
+    )]
+    async fn update_technology(
+        &self,
+        Parameters(input): Parameters<UpdateTechnologyInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result = blocking(move || {
+            technologies::update(&normalise_path(&path), &input.tech_id, &input.update)
+        })
+        .await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Appends a new technology to the file's `technologies` block, creating the block in a file that has none. Returns the file as re-read."
+    )]
+    async fn add_technology(
+        &self,
+        Parameters(input): Parameters<AddTechnologyInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result =
+            blocking(move || technologies::add(&normalise_path(&path), &input.technology)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
+        description = "Removes one technology from the file. Paths of other technologies that lead to it are left for you to fix. Returns the file as re-read.",
+        annotations(destructive_hint = true)
+    )]
+    async fn delete_technology(
+        &self,
+        Parameters(input): Parameters<DeleteTechnologyInput>,
+    ) -> Result<String, String> {
+        let path = Scope::current(&self.app)?.write_path(&input.path)?;
+        let changed = path.clone();
+        let result =
+            blocking(move || technologies::delete(&normalise_path(&path), &input.tech_id)).await;
+
+        if result.is_ok() {
+            self.changed(&changed);
+        }
+        result
+    }
+
+    #[tool(
         description = "Sprite (GFX_) names defined by the game and the mod whose name contains the query, with the texture each points at. Use it to choose a focus icon, an event picture or a portrait.",
         annotations(read_only_hint = true)
     )]
@@ -1467,6 +1570,10 @@ mod tests {
             Server::update_ideology_tool_attr(),
             Server::add_ideology_tool_attr(),
             Server::delete_ideology_tool_attr(),
+            Server::read_technology_file_tool_attr(),
+            Server::update_technology_tool_attr(),
+            Server::add_technology_tool_attr(),
+            Server::delete_technology_tool_attr(),
             Server::search_sprites_tool_attr(),
             Server::sprite_texture_tool_attr(),
             Server::read_localisation_file_tool_attr(),
@@ -1557,5 +1664,13 @@ mod tests {
         assert!(text.contains("ideologyId"), "{text}");
         assert!(text.contains("canBeRandomlySelected"), "{text}");
         assert!(!text.contains("dynamic_faction_names"), "{text}");
+
+        let schema = serde_json::Value::Object(
+            (*Server::update_technology_tool_attr().input_schema).clone(),
+        );
+        let text = schema.to_string();
+        assert!(text.contains("techId"), "{text}");
+        assert!(text.contains("leadsToTech"), "{text}");
+        assert!(!text.contains("research_cost_coeff"), "{text}");
     }
 }
