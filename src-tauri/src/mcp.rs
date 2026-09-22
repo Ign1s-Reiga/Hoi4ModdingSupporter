@@ -647,7 +647,7 @@ impl Server {
             FILE_CHANGED_EVENT,
             serde_json::json!({ "path": normalise_path(path) }),
         );
-        crate::forget_caches(&self.app);
+        crate::forget_caches(&self.app, path);
     }
 
     #[tool(

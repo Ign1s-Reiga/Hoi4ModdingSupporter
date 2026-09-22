@@ -188,7 +188,7 @@ fn write_text_file(
     // map's own csv and `.gfx` sprite definitions included. Which of them the
     // caches are built from is not worth guessing: dropping them costs one
     // reload, and only if a page needing them is opened afterwards.
-    forget_caches(&app);
+    forget_caches(&app, std::path::Path::new(&path));
     console::info(
         &app,
         Source::Files,
@@ -199,14 +199,22 @@ fn write_text_file(
     Ok(written)
 }
 
-/// Forgets the decoded map and the sprite index, so the next call to either
-/// rebuilds it from disk. Any write can invalidate both.
-pub(crate) fn forget_caches(app: &AppHandle) {
+/// Forgets the caches a write to `path` may have invalidated, so the next
+/// call rebuilds them from disk. The decoded map and the sprite index go on
+/// any write; the localisation index only for a `.yml`, since rebuilding it
+/// reads every localisation file the game ships and no other file can
+/// change what a key says.
+pub(crate) fn forget_caches(app: &AppHandle, path: &std::path::Path) {
     if let Ok(mut slot) = app.state::<MapCache>().0.lock() {
         *slot = None;
     }
     sprites::forget(app);
-    localisation::forget(app);
+    if path
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("yml"))
+    {
+        localisation::forget(app);
+    }
 }
 
 #[tauri::command]
@@ -467,7 +475,7 @@ fn update_state(
     // Owners, ids and province lists all feed the map. Keeping the cache
     // because the folder has not changed would leave the old colours up and,
     // worse, resolve a click to the owner the state used to have.
-    forget_caches(&app);
+    forget_caches(&app, std::path::Path::new(&path));
     console::info(
         &app,
         Source::Files,
