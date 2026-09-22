@@ -22,6 +22,8 @@ import type {
   FocusUpdate,
   IdeologyFile,
   IdeologyUpdate,
+  TechnologyFile,
+  TechnologyUpdate,
   LocalisationEntry,
   LocalisationFile,
   LocalisationFileInfo,
@@ -183,6 +185,31 @@ export const api = {
 
   deleteIdeologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding, ideologyId: string) =>
     call<IdeologyFile>('delete_ideology_source', { path, source, hasBom, encoding, ideologyId }),
+
+  readTechnologyFile: (path: string) => call<TechnologyFile>('read_technology_file', { path }),
+
+  parseTechnologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding) =>
+    call<TechnologyFile>('parse_technology_source', { path, source, hasBom, encoding }),
+
+  updateTechnologySource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    techId: string,
+    update: TechnologyUpdate,
+  ) => call<TechnologyFile>('update_technology_source', { path, source, hasBom, encoding, techId, update }),
+
+  addTechnologySource: (
+    path: string,
+    source: string,
+    hasBom: boolean,
+    encoding: Encoding,
+    technology: TechnologyUpdate,
+  ) => call<TechnologyFile>('add_technology_source', { path, source, hasBom, encoding, technology }),
+
+  deleteTechnologySource: (path: string, source: string, hasBom: boolean, encoding: Encoding, techId: string) =>
+    call<TechnologyFile>('delete_technology_source', { path, source, hasBom, encoding, techId }),
 
   updateFocus: (path: string, focusId: string, update: FocusUpdate) =>
     call<FocusFile>('update_focus', { path, focusId, update }),

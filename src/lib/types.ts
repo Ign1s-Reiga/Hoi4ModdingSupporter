@@ -307,6 +307,66 @@ export interface IdeologyFile {
 
 export type IdeologyUpdate = Omit<Ideology, 'line'>;
 
+export interface TechFolder {
+  name: string;
+  /** As written: a number, or a `@variable` the file declares. */
+  x: string;
+  y: string;
+}
+
+export interface TechPath {
+  leadsToTech: string;
+  researchCostCoeff: string;
+}
+
+/** A `@name = value` row of a technology file, without the `@`. */
+export interface TechVariable {
+  name: string;
+  value: string;
+}
+
+/** One `id = { }` block of a `common/technologies` file. */
+export interface Technology {
+  id: string;
+  researchCost: string;
+  startYear: string;
+  /** `yes` for a doctrine, else empty. */
+  doctrine: string;
+  doctrineName: string;
+  xpResearchType: string;
+  xpResearchCost: string;
+  xpResearchBonus: string;
+  folders: TechFolder[];
+  paths: TechPath[];
+  categories: string[];
+  xor: string[];
+  subTechnologies: string[];
+  enableEquipments: string[];
+  enableEquipmentModules: string[];
+  enableSubunits: string[];
+  /** Bodies of the script blocks, kept as text. */
+  allow: string;
+  allowBranch: string;
+  onResearchComplete: string;
+  aiWillDo: string;
+  aiResearchWeights: string;
+  /** Everything else in the block, as script; edited in the code view. */
+  effects: string;
+  line: number;
+}
+
+export interface TechnologyFile {
+  path: string;
+  variables: TechVariable[];
+  technologies: Technology[];
+  hasBom: boolean;
+  encoding: Encoding;
+  /** The text the technologies were read from; the code view edits it directly. */
+  source: string;
+}
+
+export type TechnologyUpdate = Omit<Technology, 'effects' | 'line'>;
+
 /** A `GFX_...` sprite resolved through `interface/*.gfx` to a picture. */
 export interface SpriteIcon {
   name: string;
@@ -522,6 +582,60 @@ export function toIdeologyUpdate(ideology: Ideology): IdeologyUpdate {
     rules: ideology.rules,
     modifiers: ideology.modifiers,
     factionModifiers: ideology.factionModifiers,
+  };
+}
+
+/** The editable fields of a technology, with everything blank. */
+export function emptyTechnologyUpdate(): TechnologyUpdate {
+  return {
+    id: '',
+    researchCost: '',
+    startYear: '',
+    doctrine: '',
+    doctrineName: '',
+    xpResearchType: '',
+    xpResearchCost: '',
+    xpResearchBonus: '',
+    folders: [],
+    paths: [],
+    categories: [],
+    xor: [],
+    subTechnologies: [],
+    enableEquipments: [],
+    enableEquipmentModules: [],
+    enableSubunits: [],
+    allow: '',
+    allowBranch: '',
+    onResearchComplete: '',
+    aiWillDo: '',
+    aiResearchWeights: '',
+  };
+}
+
+/** The editable fields of an existing technology, without its effects and position. */
+export function toTechnologyUpdate(tech: Technology): TechnologyUpdate {
+  return {
+    id: tech.id,
+    researchCost: tech.researchCost,
+    startYear: tech.startYear,
+    doctrine: tech.doctrine,
+    doctrineName: tech.doctrineName,
+    xpResearchType: tech.xpResearchType,
+    xpResearchCost: tech.xpResearchCost,
+    xpResearchBonus: tech.xpResearchBonus,
+    folders: tech.folders,
+    paths: tech.paths,
+    categories: tech.categories,
+    xor: tech.xor,
+    subTechnologies: tech.subTechnologies,
+    enableEquipments: tech.enableEquipments,
+    enableEquipmentModules: tech.enableEquipmentModules,
+    enableSubunits: tech.enableSubunits,
+    allow: tech.allow,
+    allowBranch: tech.allowBranch,
+    onResearchComplete: tech.onResearchComplete,
+    aiWillDo: tech.aiWillDo,
+    aiResearchWeights: tech.aiResearchWeights,
   };
 }
 

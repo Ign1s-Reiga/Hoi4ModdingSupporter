@@ -24,6 +24,11 @@ static export served inside the Tauri window.
   effects of an option stay script. Events sharing an id are flagged. A
   preview draws the window the game would, with the text behind the keys
   in any language the mod writes.
+- **Technology tree editor** — a file's technologies on the game grid, one
+  tree folder at a time, with their paths and exclusions drawn; drag to move
+  (rows spelled with `@1936` variables stay that way), edit cost, folders,
+  paths, categories, equipment and doctrine fields in a form, the modifiers
+  a technology grants in the text.
 - **Ideology editor** — each ideology group's colour, sub-ideologies, faction
   names, rules, modifiers and AI behaviour, edited beside the file's text,
   with a check of the localisation keys the game will look up for it.
@@ -98,6 +103,7 @@ src-tauri/src/       Rust backend
   ideologies.rs      Ideology reading and writing
   localisation.rs    Localisation reading and writing
   project.rs         Descriptor parsing and file scanning
+  technologies.rs    Technology reading and writing
 ```
 
 The WinUI 3 version of this tool lives in the history of this repository, at
